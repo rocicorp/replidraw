@@ -19,6 +19,8 @@ import {
 import type { ReadStorage, WriteStorage } from "../shared/storage";
 import type { UserInfo } from "../shared/client-state";
 import { newID } from "../shared/id";
+import * as t from "io-ts";
+import { must } from "../shared/decode";
 
 /**
  * Abstracts Replicache storage (key/value pairs) to entities (Shape).
@@ -33,10 +35,7 @@ export function createData(rep: Replicache) {
     clientID = localStorage.clientID = newID();
   }
 
-  function subscribe<T extends JSONValue>(
-    def: T,
-    f: (tx: ReadTransaction) => Promise<T>
-  ): T {
+  function subscribe<T>(def: T, f: (tx: ReadTransaction) => Promise<T>): T {
     return useSubscribe(rep, f, def);
   }
 
@@ -146,9 +145,18 @@ export function createData(rep: Replicache) {
         return r;
       }),
 
-    useCursor: (clientID: string) =>
+    useClientState: (clientID: string) =>
       subscribe(null, async (tx: ReadTransaction) => {
-        return (await getClientState(readStorage(tx), clientID)).cursor;
+        return await getClientState(readStorage(tx), clientID);
+      }),
+
+    useServerTime: () =>
+      subscribe("", async (tx: ReadTransaction) => {
+        return must(
+          t
+            .union([t.string, t.undefined])
+            .decode(await readStorage(tx).getObject("server-time"))
+        );
       }),
   };
 }

@@ -1,5 +1,5 @@
 import * as t from "io-ts";
-import { must } from "../backend/decode";
+import { must } from "./decode";
 import { ReadStorage, WriteStorage } from "./storage";
 import { randInt } from "./rand";
 
@@ -50,6 +50,8 @@ export const clientState = t.type({
   overID: t.string,
   selectedID: t.string,
   userInfo: userInfo,
+  // Will be undefined when first created, client-side.
+  serverLastModified: t.union([t.string, t.undefined]),
 });
 
 export type UserInfo = t.TypeOf<typeof userInfo>;
@@ -72,6 +74,7 @@ export async function initClientState(
       overID: "",
       selectedID: "",
       userInfo: defaultUserInfo,
+      serverLastModified: undefined,
     },
   });
 }

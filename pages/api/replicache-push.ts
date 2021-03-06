@@ -15,7 +15,7 @@ import {
   getLastMutationID,
   setLastMutationID,
 } from "../../backend/data";
-import { must } from "../../backend/decode";
+import { must } from "../../shared/decode";
 import Pusher from "pusher";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { JSONValue } from "replicache";

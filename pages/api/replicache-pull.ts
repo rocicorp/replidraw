@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { ExecuteStatementCommandOutput, Field } from "@aws-sdk/client-rds-data";
 import { transact } from "../../backend/rds";
 import { getCookieVersion, getLastMutationID } from "../../backend/data";
-import { must } from "../../backend/decode";
+import { must } from "../../shared/decode";
 
 export default async (req: NextApiRequest, res: NextApiResponse) => {
   console.log(`Processing pull`, JSON.stringify(req.body, null, ""));
@@ -14,14 +14,19 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   const t0 = Date.now();
   let entries;
   let lastMutationID = 0;
+  let serverTime;
 
   await transact(async (executor) => {
-    [entries, lastMutationID, cookie] = await Promise.all([
-      executor("SELECT K, V, Deleted FROM Object WHERE Version > :version", {
-        version: { longValue: cookie },
-      }),
+    [entries, lastMutationID, cookie, serverTime] = await Promise.all([
+      executor(
+        "SELECT K, V, Deleted, LastModified FROM Object WHERE Version > :version",
+        {
+          version: { longValue: cookie },
+        }
+      ),
       getLastMutationID(executor, pull.clientID),
       getCookieVersion(executor),
+      executor("SELECT NOW()"),
     ]);
   });
   console.log("lastMutationID: ", lastMutationID);
@@ -30,6 +35,12 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   // Grump. Typescript seems to not understand that the argument to transact()
   // is guaranteed to have been called before transact() exits.
   entries = (entries as any) as ExecuteStatementCommandOutput;
+  serverTime = must(
+    t.string.decode(
+      ((serverTime as any) as ExecuteStatementCommandOutput).records?.[0]?.[0]
+        .stringValue
+    )
+  );
 
   const resp: PullResponse = {
     lastMutationID,
@@ -48,10 +59,12 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
         { stringValue: key },
         { stringValue: content },
         { booleanValue: deleted },
+        { stringValue: lastModified },
       ] = row as [
         Field.StringValueMember,
         Field.StringValueMember,
-        Field.BooleanValueMember
+        Field.BooleanValueMember,
+        Field.StringValueMember
       ];
       if (deleted) {
         resp.patch.push({
@@ -59,13 +72,20 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
           path: `/${key}`,
         });
       } else {
+        const j = JSON.parse(content);
+        j.serverLastModified = lastModified;
         resp.patch.push({
           op: "replace",
           path: `/${key}`,
-          valueString: content,
+          valueString: JSON.stringify(j),
         });
       }
     }
+    resp.patch.push({
+      op: "replace",
+      path: "/server-time",
+      valueString: JSON.stringify(serverTime),
+    });
   }
 
   console.log(`Returning`, JSON.stringify(resp, null, ""));
