@@ -34,11 +34,39 @@ export async function setLastMutationID(
   lastMutationID: number
 ): Promise<void> {
   await executor(
-    "INSERT INTO Client (Id, LastMutationID) VALUES (:id, :lastMutationID) " +
+    "INSERT INTO Client (Id, LastMutationID, LastCookie) VALUES (:id, :lastMutationID, LastCookie) " +
       "ON DUPLICATE KEY UPDATE Id = :id, LastMutationID = :lastMutationID",
     {
       id: { stringValue: clientID },
       lastMutationID: { longValue: lastMutationID },
+    }
+  );
+}
+
+export async function getLastCookie(
+  executor: ExecuteStatementFn,
+  clientID: string
+): Promise<string | null> {
+  const result = await executor(
+    "SELECT LastCookie FROM Client WHERE Id = :id",
+    {
+      id: { stringValue: clientID },
+    }
+  );
+  return result.records?.[0]?.[0]?.stringValue ?? null;
+}
+
+export async function setLastCookie(
+  executor: ExecuteStatementFn,
+  clientID: string,
+  lastCookie: string
+): Promise<void> {
+  await executor(
+    "INSERT INTO Client (Id, LastMutationID, LastCookie) VALUES (:id, LastMutationID, :lastCookie) " +
+      "ON DUPLICATE KEY UPDATE LastCookie = :lastCookie",
+    {
+      id: { stringValue: clientID },
+      lastCookie: { stringValue: lastCookie },
     }
   );
 }
@@ -68,15 +96,18 @@ export async function putObject(
   key: string,
   value: JSONValue
 ): Promise<void> {
-  await executor(`
+  await executor(
+    `
     INSERT INTO Object (DocumentID, K, V, Deleted)
     VALUES (:docID, :key, :value, False)
       ON DUPLICATE KEY UPDATE V = :value, Deleted = False
-    `, {
+    `,
+    {
       docID: { stringValue: docID },
       key: { stringValue: key },
       value: { stringValue: JSON.stringify(value) },
-    });
+    }
+  );
 }
 
 export async function delObject(
@@ -84,27 +115,33 @@ export async function delObject(
   docID: string,
   key: string
 ): Promise<void> {
-  await executor(`
+  await executor(
+    `
     UPDATE Object SET Deleted = True
     WHERE DocumentID = :docID AND K = :key
-  `, {
-    docID: { stringValue: docID },
-    key: { stringValue: key },
-  });
+  `,
+    {
+      docID: { stringValue: docID },
+      key: { stringValue: key },
+    }
+  );
 }
 
 export async function delAllShapes(
   executor: ExecuteStatementFn,
   docID: string
 ): Promise<void> {
-  await executor(`
+  await executor(
+    `
     UPDATE Object Set Deleted = True
     WHERE
       DocumentID = :docID AND
       K like 'shape-%'
-  `, {
-    docID: { stringValue: docID },
-  });
+  `,
+    {
+      docID: { stringValue: docID },
+    }
+  );
 }
 
 export function storage(executor: ExecuteStatementFn, docID: string) {

@@ -24,7 +24,7 @@ export async function computePull(
     const s = storage(executor, docID);
     await initShapes(
       s,
-      new Array(5).fill(null).map(() => randomShape())
+      Array.from({ length: 5 }, () => randomShape())
     );
     await s.flush();
     [entries, lastMutationID, responseCookie] = await Promise.all([

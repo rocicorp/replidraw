@@ -31,14 +31,28 @@ export default function Home() {
 
       const defaultUserInfo = randUserInfo();
       const d = await createData(rep, defaultUserInfo);
+      const { clientID } = d;
 
       Pusher.logToConsole = true;
-      var pusher = new Pusher("d9088b47d2371d532c4c", {
+      const pusher = new Pusher("d9088b47d2371d532c4c", {
         cluster: "us3",
+        authEndpoint: "/api/pusher-auth",
+        auth: {
+          params: {
+            clientID,
+          },
+        },
       });
-      var channel = pusher.subscribe("default");
-      channel.bind("poke", function (data: unknown) {
+
+      // Use a presence channel so that we know who is in the room.
+      const presenceChannel = pusher.subscribe(`presence-${docID}`);
+      presenceChannel.bind("poke", () => {
         rep.pull();
+      });
+
+      const personalChannel = pusher.subscribe(`private-${clientID}`);
+      personalChannel.bind("super-poke", (data: unknown) => {
+        console.log("xxx super-poke", data);
       });
 
       setData(d);

@@ -85,9 +85,12 @@ export async function createDatabase() {
     CHARACTER SET utf8mb4`
   );
 
+  //  We use a UNIX timestamp with 6 decimals (6 because of DATETIME(6)) for the
+  //  cookie.
   await executeStatement(`CREATE TABLE Client (
     Id VARCHAR(100) PRIMARY KEY NOT NULL,
-    LastMutationID BIGINT NOT NULL)`);
+    LastMutationID BIGINT NOT NULL,
+    LastCookie VARCHAR(25))`);
 
   // On normalization:
   //

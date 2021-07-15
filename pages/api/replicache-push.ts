@@ -1,5 +1,5 @@
 import * as t from "io-ts";
-import { ExecuteStatementFn, transact } from "../../backend/rds";
+import { transact } from "../../backend/rds";
 import {
   putShape,
   moveShape,
@@ -18,6 +18,7 @@ import {
 } from "../../shared/client-state";
 import {
   delAllShapes,
+  getLastCookie,
   getLastMutationID,
   setLastMutationID,
   storage,
@@ -25,8 +26,10 @@ import {
 import { must } from "../../backend/decode";
 import Pusher from "pusher";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { computePull } from "../../backend/pull";
+import { createPusher } from "../../backend/pusher";
 
-const mutation = t.union([
+const mutationType = t.union([
   t.type({
     id: t.number,
     name: t.literal("createShape"),
@@ -114,18 +117,20 @@ const mutation = t.union([
   }),
 ]);
 
-const pushRequest = t.type({
+const pushRequestType = t.type({
   clientID: t.string,
-  mutations: t.array(mutation),
+  mutations: t.array(mutationType),
 });
 
-type Mutation = t.TypeOf<typeof mutation>;
+// type Mutation = t.TypeOf<typeof mutationType>;
 
 export default async (req: NextApiRequest, res: NextApiResponse) => {
   console.log("Processing push", JSON.stringify(req.body, null, ""));
 
   const docID = req.query["docID"].toString();
-  const push = must(pushRequest.decode(req.body));
+  const { clientID, mutations } = must(pushRequestType.decode(req.body));
+
+  let lastCookie!: string | null;
 
   // Because we are implementing multiplayer, our pushes will tend to have
   // *lots* of very fine-grained events. Think, for example, of mouse moves.
@@ -158,15 +163,19 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   // collapse logic anywhere, and (b) we get a nice perf boost by parallelizing
   // the flush at the end.
 
+  const pusher = createPusher();
+  // Start the request to get the members in the presence channel in paralell
+  // with the RDS request.
+  const userIDsP = getPresenceChannelMembers(pusher, docID);
+
   const t0 = Date.now();
   await transact(async (executor) => {
     const s = storage(executor, docID);
 
-    let lastMutationID = await getLastMutationID(executor, push.clientID);
+    let lastMutationID = await getLastMutationID(executor, clientID);
     console.log("lastMutationID:", lastMutationID);
 
-    for (let i = 0; i < push.mutations.length; i++) {
-      const mutation = push.mutations[i];
+    for (const mutation of mutations) {
       const expectedMutationID = lastMutationID + 1;
 
       if (mutation.id < expectedMutationID) {
@@ -224,23 +233,61 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
     await Promise.all([
       s.flush(),
-      setLastMutationID(executor, push.clientID, lastMutationID),
+      setLastMutationID(executor, clientID, lastMutationID),
     ]);
   });
 
   console.log("Processed all mutations in", Date.now() - t0);
 
-  const pusher = new Pusher({
-    appId: "1157097",
-    key: "d9088b47d2371d532c4c",
-    secret: "64204dab73c42e17afc3",
-    cluster: "us3",
-    useTLS: true,
+  const userIDs = await userIDsP;
+
+  // TODO: Should we do all of this in a single transaction?
+
+  let cookies!: { clientID: string; cookie: string | null }[];
+  await transact(async (executor) => {
+    cookies = await Promise.all(
+      userIDs.map(async (clientID) => {
+        const cookie = await getLastCookie(executor, clientID);
+        return { clientID, cookie };
+      })
+    );
   });
 
+  await Promise.all(
+    cookies.map(async ({ clientID, cookie }) => {
+      if (!cookie) {
+        return { clientID, cookie, response: null };
+      }
+      const response = await computePull(cookie, clientID, docID);
+
+      await pusher.trigger(`private-${clientID}`, "super-poke", {
+        lastCookie: cookie,
+        response,
+      });
+    })
+  );
+
   const t2 = Date.now();
-  await pusher.trigger("default", "poke", {});
+  await pusher.trigger(`presence-${docID}`, "poke", {});
   console.log("Sent poke in", Date.now() - t2);
 
   res.status(200).json({});
 };
+
+async function getPresenceChannelMembers(
+  pusher: Pusher,
+  docID: string
+): Promise<string[]> {
+  const t0 = Date.now();
+  const resp = await pusher.get({
+    path: `/channels/presence-${docID}/users`,
+  });
+  const json: { users: { id: string }[] } = await resp.json();
+  const rv = json.users.map(({ id }) => id);
+  console.log(
+    "Getting the number of users in the presence channel took",
+    Date.now() - t0,
+    "ms"
+  );
+  return rv;
+}
