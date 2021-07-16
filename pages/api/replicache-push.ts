@@ -122,8 +122,6 @@ const pushRequestType = t.type({
   mutations: t.array(mutationType),
 });
 
-// type Mutation = t.TypeOf<typeof mutationType>;
-
 export default async (req: NextApiRequest, res: NextApiResponse) => {
   console.log("Processing push", JSON.stringify(req.body, null, ""));
 
