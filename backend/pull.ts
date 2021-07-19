@@ -2,7 +2,7 @@ import * as t from "io-ts";
 import { PullResponse } from "replicache";
 import { ExecuteStatementCommandOutput, Field } from "@aws-sdk/client-rds-data";
 import { transact } from "./rds";
-import { getCookie, getLastMutationID, storage } from "./data";
+import { getCookie, getLastMutationID, setLastCookie, storage } from "./data";
 import { initShapes, randomShape } from "../shared/shape";
 
 export const pullRequestType = t.type({
@@ -43,6 +43,10 @@ export async function computePull(
   console.log("lastMutationID: ", lastMutationID);
   console.log("Read all objects in", Date.now() - t0);
 
+  const p = transact(async (executor) => {
+    await setLastCookie(executor, clientID, responseCookie);
+  });
+
   const resp: PullResponse = {
     lastMutationID,
     cookie: responseCookie,
@@ -74,5 +78,8 @@ export async function computePull(
       }
     }
   }
+
+  await p;
+
   return resp;
 }

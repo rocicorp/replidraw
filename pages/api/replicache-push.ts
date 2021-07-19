@@ -123,6 +123,7 @@ const pushRequestType = t.type({
 });
 
 export default async (req: NextApiRequest, res: NextApiResponse) => {
+  const pushTime0 = Date.now();
   console.log("Processing push", JSON.stringify(req.body, null, ""));
 
   const docID = req.query["docID"].toString();
@@ -237,10 +238,21 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
   console.log("Processed all mutations in", Date.now() - t0);
 
+  // // Don't await here
+  // const p = sendPokes(userIDsP, docID, pusher);
+
+  res.status(200).json({});
+  console.log("push response time:", Date.now() - pushTime0);
+
+  await sendPokes(userIDsP, docID, pusher);
+};
+
+async function sendPokes(
+  userIDsP: Promise<string[]>,
+  docID: string,
+  pusher: Pusher
+) {
   const userIDs = await userIDsP;
-
-  // TODO: Should we do all of this in a single transaction?
-
   let cookies!: { clientID: string; cookie: string | null }[];
   await transact(async (executor) => {
     cookies = await Promise.all(
@@ -251,12 +263,17 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     );
   });
 
-  await Promise.all(
+  console.log("cookies:", cookies);
+
+  const t2 = Date.now();
+  const ps = Promise.all(
     cookies.map(async ({ clientID, cookie }) => {
       if (!cookie) {
-        return { clientID, cookie, response: null };
+        return;
       }
       const response = await computePull(cookie, clientID, docID);
+
+      console.log("Trigger super poke to", clientID, "with cookie", cookie);
 
       await pusher.trigger(`private-${clientID}`, "super-poke", {
         lastCookie: cookie,
@@ -265,12 +282,11 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     })
   );
 
-  const t2 = Date.now();
-  await pusher.trigger(`presence-${docID}`, "poke", {});
-  console.log("Sent poke in", Date.now() - t2);
-
-  res.status(200).json({});
-};
+  const p = pusher.trigger(`presence-${docID}`, "poke", {});
+  await ps;
+  await p;
+  console.log("Sent pokes in", Date.now() - t2);
+}
 
 async function getPresenceChannelMembers(
   pusher: Pusher,

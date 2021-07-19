@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Replicache } from "replicache";
+import { Puller, PullerResult, PullResponse, Replicache } from "replicache";
 import { createData, mutators } from "../../frontend/data";
 import { Designer } from "../../frontend/designer";
 import { Nav } from "../../frontend/nav";
@@ -27,7 +27,68 @@ export default function Home() {
         useMemstore: true,
         name: docID,
         mutators,
+        pushMaxConnections: 1,
       });
+
+      const superPokes: Map<string, PullResponse> = new Map();
+      // let lastCookie: string | undefined;
+      // let lastPullResponse: PullResponse | undefined;
+      const defaultPuller = rep.puller;
+
+      rep.puller = async (request: Request): Promise<PullerResult> => {
+        // console.log(
+        //   "xxx super poke last data. lastCookie",
+        //   lastCookie,
+        //   "lastPullResponse",
+        //   lastPullResponse
+        // );
+        // console.log(
+        //   "xxx puller request: request.cookie",
+        //   (await request.clone().json()).cookie,
+        //   "lastCookie",
+        //   lastCookie
+        // );
+
+        const requestCookie = (await request.clone().json()).cookie;
+
+        // console.log("xxx looking for cookie", requestCookie);
+        // console.log("xxx have", [...superPokes.keys()]);
+
+        const superPokeResponse = superPokes.get(requestCookie);
+        if (superPokeResponse) {
+          console.log("xxx found super poke", requestCookie);
+          superPokes.delete(requestCookie);
+          return {
+            response: superPokeResponse,
+            httpRequestInfo: { httpStatusCode: 200, errorMessage: "" },
+          };
+        } else {
+          console.log("xxx failed to find super poke for", requestCookie);
+          // superPokes.clear();
+        }
+
+        // if (
+        //   lastPullResponse &&
+        //   (await request.clone().json()).cookie === lastCookie
+        // ) {
+        //   const response = lastPullResponse;
+        //   console.log("xxx found a match");
+        //   lastCookie = undefined;
+        //   lastPullResponse = undefined;
+        //   return {
+        //     response,
+        //     httpRequestInfo: { httpStatusCode: 200, errorMessage: "" },
+        //   };
+        // }
+
+        console.log(
+          "xxx doing defaultPuller with request cookie",
+          requestCookie
+        );
+        const res = await defaultPuller(request);
+        console.log("xxx defaultPuller result cookie", res.response?.cookie);
+        return res;
+      };
 
       const defaultUserInfo = randUserInfo();
       const d = await createData(rep, defaultUserInfo);
@@ -47,12 +108,26 @@ export default function Home() {
       // Use a presence channel so that we know who is in the room.
       const presenceChannel = pusher.subscribe(`presence-${docID}`);
       presenceChannel.bind("poke", () => {
-        rep.pull();
+        // console.log("xxx poke");
+        // rep.pull();
       });
 
+      type SuperPoke = {
+        lastCookie: string;
+        response: PullResponse;
+      };
+
       const personalChannel = pusher.subscribe(`private-${clientID}`);
-      personalChannel.bind("super-poke", (data: unknown) => {
-        console.log("xxx super-poke", data);
+      personalChannel.bind("super-poke", (data: SuperPoke) => {
+        const { lastCookie, response } = data;
+        console.log(
+          "xxx got super poke with base cookie:",
+          lastCookie,
+          "response.cookie:",
+          response.cookie
+        );
+        superPokes.set(lastCookie, response);
+        rep.pull();
       });
 
       setData(d);

@@ -17,7 +17,9 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   res.json(resp);
   res.end();
 
-  await transact(async (executor) => {
-    await setLastCookie(executor, clientID, cookie);
-  });
+  // setTimeout(async () => {
+  //   await transact(async (executor) => {
+  //     await setLastCookie(executor, clientID, cookie);
+  //   });
+  // }, 1);
 };
