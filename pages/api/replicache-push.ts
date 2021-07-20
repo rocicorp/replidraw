@@ -1,5 +1,5 @@
 import * as t from "io-ts";
-import { transact } from "../../backend/rds";
+import { ExecuteStatementFn, transact } from "../../backend/rds";
 import {
   putShape,
   moveShape,
@@ -18,7 +18,6 @@ import {
 } from "../../shared/client-state";
 import {
   delAllShapes,
-  getLastCookie,
   getLastMutationID,
   setLastMutationID,
   storage,
@@ -28,6 +27,7 @@ import Pusher from "pusher";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { computePull } from "../../backend/pull";
 import { createPusher } from "../../backend/pusher";
+import { PullResponse } from "replicache/out/replicache";
 
 const mutationType = t.union([
   t.type({
@@ -162,11 +162,6 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   // collapse logic anywhere, and (b) we get a nice perf boost by parallelizing
   // the flush at the end.
 
-  const pusher = createPusher();
-  // Start the request to get the members in the presence channel in paralell
-  // with the RDS request.
-  const userIDsP = getPresenceChannelMembers(pusher, docID);
-
   const t0 = Date.now();
   await transact(async (executor) => {
     const s = storage(executor, docID);
@@ -232,76 +227,90 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
     await Promise.all([
       s.flush(),
-      setLastMutationID(executor, clientID, lastMutationID),
+      setLastMutationID(executor, clientID, lastMutationID, docID),
     ]);
   });
 
   console.log("Processed all mutations in", Date.now() - t0);
 
-  // // Don't await here
-  // const p = sendPokes(userIDsP, docID, pusher);
-
   res.status(200).json({});
   console.log("push response time:", Date.now() - pushTime0);
 
-  await sendPokes(userIDsP, docID, pusher);
+  let clientInfos!: ClientInfo[];
+  await transact(async (executor) => {
+    clientInfos = await getClientIDsAndLastCookies(executor, docID);
+  });
+
+  const pusher = createPusher();
+  const pokeStart = Date.now();
+  console.log("XXX sending", clientInfos.length, " pokes");
+  await sendPokes(clientInfos, docID, pusher);
+  console.log(
+    "XXX sending",
+    clientInfos.length,
+    "pokes DONE",
+    Date.now() - pokeStart
+  );
 };
 
+type ClientInfo = { lastCookie: string; clientID: string };
+
+async function getClientIDsAndLastCookies(
+  executor: ExecuteStatementFn,
+  docID: string
+): Promise<ClientInfo[]> {
+  const res = await executor(
+    "SELECT ID, LastCookie FROM Client WHERE DocumentID = :docID AND LastCookie IS NOT NULL",
+    {
+      docID: { stringValue: docID },
+    }
+  );
+  return (
+    res.records?.map((r) => ({
+      clientID: r[0].stringValue!,
+      lastCookie: r[1].stringValue!,
+    })) ?? []
+  );
+}
+
 async function sendPokes(
-  userIDsP: Promise<string[]>,
+  clientInfos: ClientInfo[],
   docID: string,
   pusher: Pusher
 ) {
-  const userIDs = await userIDsP;
-  let cookies!: { clientID: string; cookie: string | null }[];
-  await transact(async (executor) => {
-    cookies = await Promise.all(
-      userIDs.map(async (clientID) => {
-        const cookie = await getLastCookie(executor, clientID);
-        return { clientID, cookie };
-      })
-    );
-  });
+  let responses!: {
+    clientID: string;
+    cookie: string;
+    response: PullResponse;
+  }[];
 
-  console.log("cookies:", cookies);
-
-  const t2 = Date.now();
-  const ps = Promise.all(
-    cookies.map(async ({ clientID, cookie }) => {
-      if (!cookie) {
-        return;
-      }
-      const response = await computePull(cookie, clientID, docID);
-
-      console.log("Trigger super poke to", clientID, "with cookie", cookie);
-
-      await pusher.trigger(`private-${clientID}`, "super-poke", {
-        lastCookie: cookie,
-        response,
-      });
+  responses = await Promise.all(
+    clientInfos.map(async ({ lastCookie, clientID }) => {
+      const response = await computePull(lastCookie, clientID, docID);
+      return { clientID, cookie: lastCookie, response };
     })
   );
 
-  const p = pusher.trigger(`presence-${docID}`, "poke", {});
-  await ps;
-  await p;
+  const t2 = Date.now();
+  const events = responses.map(({ clientID, cookie, response }) => ({
+    channel: `replidraw-${docID}-${clientID}`,
+    name: "super-poke",
+    data: {
+      lastCookie: cookie,
+      response,
+    },
+  }));
+  for (const part of partition(events, 10)) {
+    await pusher.triggerBatch(part);
+  }
   console.log("Sent pokes in", Date.now() - t2);
 }
 
-async function getPresenceChannelMembers(
-  pusher: Pusher,
-  docID: string
-): Promise<string[]> {
-  const t0 = Date.now();
-  const resp = await pusher.get({
-    path: `/channels/presence-${docID}/users`,
-  });
-  const json: { users: { id: string }[] } = await resp.json();
-  const rv = json.users.map(({ id }) => id);
-  console.log(
-    "Getting the number of users in the presence channel took",
-    Date.now() - t0,
-    "ms"
-  );
-  return rv;
+function partition<T>(arr: T[], size: number): T[][] {
+  const n = Math.ceil(arr.length / size);
+  const result: T[][] = [];
+  for (let i = 0; i < n; i++) {
+    result.push(arr.slice(i * size, (i + 1) * size));
+  }
+  return result;
 }

@@ -27,66 +27,45 @@ export default function Home() {
         useMemstore: true,
         name: docID,
         mutators,
-        pushMaxConnections: 1,
+        pushMaxConnections: 3,
       });
 
       const superPokes: Map<string, PullResponse> = new Map();
-      // let lastCookie: string | undefined;
-      // let lastPullResponse: PullResponse | undefined;
       const defaultPuller = rep.puller;
 
       rep.puller = async (request: Request): Promise<PullerResult> => {
-        // console.log(
-        //   "xxx super poke last data. lastCookie",
-        //   lastCookie,
-        //   "lastPullResponse",
-        //   lastPullResponse
-        // );
-        // console.log(
-        //   "xxx puller request: request.cookie",
-        //   (await request.clone().json()).cookie,
-        //   "lastCookie",
-        //   lastCookie
-        // );
-
         const requestCookie = (await request.clone().json()).cookie;
-
-        // console.log("xxx looking for cookie", requestCookie);
-        // console.log("xxx have", [...superPokes.keys()]);
 
         const superPokeResponse = superPokes.get(requestCookie);
         if (superPokeResponse) {
-          console.log("xxx found super poke", requestCookie);
+          console.log(
+            "%cxxx found super poke",
+            "color:green",
+            prettyPrintCookie(requestCookie)
+          );
+          handledSuperPokes.add(requestCookie);
           superPokes.delete(requestCookie);
           return {
             response: superPokeResponse,
             httpRequestInfo: { httpStatusCode: 200, errorMessage: "" },
           };
         } else {
-          console.log("xxx failed to find super poke for", requestCookie);
-          // superPokes.clear();
+          console.log(
+            "%cxxx failed to find super poke for",
+            "color:red",
+            prettyPrintCookie(requestCookie)
+          );
         }
-
-        // if (
-        //   lastPullResponse &&
-        //   (await request.clone().json()).cookie === lastCookie
-        // ) {
-        //   const response = lastPullResponse;
-        //   console.log("xxx found a match");
-        //   lastCookie = undefined;
-        //   lastPullResponse = undefined;
-        //   return {
-        //     response,
-        //     httpRequestInfo: { httpStatusCode: 200, errorMessage: "" },
-        //   };
-        // }
 
         console.log(
           "xxx doing defaultPuller with request cookie",
-          requestCookie
+          prettyPrintCookie(requestCookie)
         );
         const res = await defaultPuller(request);
-        console.log("xxx defaultPuller result cookie", res.response?.cookie);
+        console.log(
+          "xxx defaultPuller result cookie",
+          prettyPrintCookie(res.response?.cookie)
+        );
         return res;
       };
 
@@ -97,19 +76,6 @@ export default function Home() {
       Pusher.logToConsole = true;
       const pusher = new Pusher("d9088b47d2371d532c4c", {
         cluster: "us3",
-        authEndpoint: "/api/pusher-auth",
-        auth: {
-          params: {
-            clientID,
-          },
-        },
-      });
-
-      // Use a presence channel so that we know who is in the room.
-      const presenceChannel = pusher.subscribe(`presence-${docID}`);
-      presenceChannel.bind("poke", () => {
-        // console.log("xxx poke");
-        // rep.pull();
       });
 
       type SuperPoke = {
@@ -117,14 +83,22 @@ export default function Home() {
         response: PullResponse;
       };
 
-      const personalChannel = pusher.subscribe(`private-${clientID}`);
-      personalChannel.bind("super-poke", (data: SuperPoke) => {
+      const channel = pusher.subscribe(`replidraw-${docID}-${clientID}`);
+      channel.bind("super-poke", (data: SuperPoke) => {
         const { lastCookie, response } = data;
+        if (handledSuperPokes.has(lastCookie)) {
+          console.log(
+            "xxx got super poke with base cookie:",
+            prettyPrintCookie(lastCookie),
+            "which has already been handled"
+          );
+          return;
+        }
         console.log(
           "xxx got super poke with base cookie:",
-          lastCookie,
+          prettyPrintCookie(lastCookie),
           "response.cookie:",
-          response.cookie
+          prettyPrintCookie(response.cookie)
         );
         superPokes.set(lastCookie, response);
         rep.pull();
@@ -155,4 +129,28 @@ export default function Home() {
       <Designer {...{ data }} />
     </div>
   );
+}
+
+let handledSuperPokes = new Set<string>();
+
+let c = 65;
+
+const m = new Map();
+
+function prettyPrintCookie<T>(
+  n: T | null | undefined
+): string | undefined | null {
+  if (n === null) {
+    return null;
+  }
+  if (n === undefined) {
+    return undefined;
+  }
+  const v = m.get(n);
+  if (v !== undefined) {
+    return v;
+  }
+  const s = String.fromCharCode(c++);
+  m.set(n, s);
+  return s;
 }

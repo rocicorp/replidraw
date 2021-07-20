@@ -1,7 +1,7 @@
 import * as t from "io-ts";
 import { PullResponse } from "replicache";
 import { ExecuteStatementCommandOutput, Field } from "@aws-sdk/client-rds-data";
-import { transact } from "./rds";
+import { ExecuteStatementFn, transact } from "./rds";
 import { getCookie, getLastMutationID, setLastCookie, storage } from "./data";
 import { initShapes, randomShape } from "../shared/shape";
 
@@ -44,7 +44,7 @@ export async function computePull(
   console.log("Read all objects in", Date.now() - t0);
 
   const p = transact(async (executor) => {
-    await setLastCookie(executor, clientID, responseCookie);
+    await setLastCookie(executor, clientID, responseCookie, docID);
   });
 
   const resp: PullResponse = {

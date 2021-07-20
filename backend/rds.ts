@@ -90,7 +90,12 @@ export async function createDatabase() {
   await executeStatement(`CREATE TABLE Client (
     Id VARCHAR(100) PRIMARY KEY NOT NULL,
     LastMutationID BIGINT NOT NULL,
-    LastCookie VARCHAR(25))`);
+    LastCookie VARCHAR(25),
+    DocumentID VARCHAR(100) NOT NULL,
+    UNIQUE (DocumentID, ID),
+    INDEX (DocumentID),
+    INDEX (Id)
+    )`);
 
   // On normalization:
   //

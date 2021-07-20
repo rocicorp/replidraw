@@ -31,14 +31,17 @@ export async function getLastMutationID(
 export async function setLastMutationID(
   executor: ExecuteStatementFn,
   clientID: string,
-  lastMutationID: number
+  lastMutationID: number,
+  docID: string
 ): Promise<void> {
   await executor(
-    "INSERT INTO Client (Id, LastMutationID, LastCookie) VALUES (:id, :lastMutationID, LastCookie) " +
-      "ON DUPLICATE KEY UPDATE Id = :id, LastMutationID = :lastMutationID",
+    `INSERT INTO Client (Id, LastMutationID, LastCookie, DocumentID) 
+    VALUES (:id, :lastMutationID, LastCookie, :docID)
+    ON DUPLICATE KEY UPDATE Id = :id, LastMutationID = :lastMutationID, DocumentID = :docID`,
     {
       id: { stringValue: clientID },
       lastMutationID: { longValue: lastMutationID },
+      docID: { stringValue: docID },
     }
   );
 }
@@ -59,14 +62,16 @@ export async function getLastCookie(
 export async function setLastCookie(
   executor: ExecuteStatementFn,
   clientID: string,
-  lastCookie: string
+  lastCookie: string,
+  docID: string
 ): Promise<void> {
   await executor(
-    "INSERT INTO Client (Id, LastMutationID, LastCookie) VALUES (:id, LastMutationID, :lastCookie) " +
+    "INSERT INTO Client (Id, LastMutationID, LastCookie, DocumentID) VALUES (:id, LastMutationID, :lastCookie, :docID) " +
       "ON DUPLICATE KEY UPDATE LastCookie = :lastCookie",
     {
       id: { stringValue: clientID },
       lastCookie: { stringValue: lastCookie },
+      docID: { stringValue: docID },
     }
   );
 }
