@@ -11,7 +11,7 @@ import {
 } from "@aws-sdk/client-rds-data";
 
 const region = process.env.AMAZON_REGION || "us-west-2";
-const dbName = process.env.REPLIDRAW_DB_NAME || "replidraw";
+const dbName = "replicache_sample_replidraw__dev_arv"; //process.env.REPLIDRAW_DB_NAME || "replidraw";
 const resourceArn = process.env.REPLIDRAW_RESOURCE_ARN;
 const secretArn = process.env.REPLIDRAW_SECRET_ARN;
 
