@@ -43,10 +43,6 @@ export async function computePull(
   console.log("lastMutationID: ", lastMutationID);
   console.log("Read all objects in", Date.now() - t0);
 
-  const p = transact(async (executor) => {
-    await setLastCookie(executor, clientID, responseCookie, docID);
-  });
-
   const resp: PullResponse = {
     lastMutationID,
     cookie: responseCookie,
@@ -79,7 +75,11 @@ export async function computePull(
     }
   }
 
-  await p;
+  const setLastCookieStart = Date.now();
+  await transact(async (executor) => {
+    await setLastCookie(executor, clientID, responseCookie, docID);
+  });
+  console.log("xxx setting last cookie took", Date.now() - setLastCookieStart);
 
   return resp;
 }

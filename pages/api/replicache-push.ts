@@ -123,13 +123,10 @@ const pushRequestType = t.type({
 });
 
 export default async (req: NextApiRequest, res: NextApiResponse) => {
-  const pushTime0 = Date.now();
   console.log("Processing push", JSON.stringify(req.body, null, ""));
 
   const docID = req.query["docID"].toString();
   const { clientID, mutations } = must(pushRequestType.decode(req.body));
-
-  let lastCookie!: string | null;
 
   // Because we are implementing multiplayer, our pushes will tend to have
   // *lots* of very fine-grained events. Think, for example, of mouse moves.
@@ -234,12 +231,13 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   console.log("Processed all mutations in", Date.now() - t0);
 
   res.status(200).json({});
-  console.log("push response time:", Date.now() - pushTime0);
 
   let clientInfos!: ClientInfo[];
+  const clientInfosStart = Date.now();
   await transact(async (executor) => {
     clientInfos = await getClientIDsAndLastCookies(executor, docID);
   });
+  console.log("xxx getting client info took", Date.now() - clientInfosStart);
 
   const pusher = createPusher();
   const pokeStart = Date.now();
@@ -292,14 +290,24 @@ async function sendPokes(
   );
 
   const t2 = Date.now();
-  const events = responses.map(({ clientID, cookie, response }) => ({
-    channel: `replidraw-${docID}-${clientID}`,
-    name: "super-poke",
-    data: {
-      lastCookie: cookie,
-      response,
-    },
-  }));
+  const events = responses.map(({ clientID, cookie, response }) => {
+    console.log(
+      "xxx sending poke to clientID",
+      clientID,
+      "cookie",
+      cookie,
+      "response.cookie",
+      response.cookie
+    );
+    return {
+      channel: `replidraw-${docID}-${clientID}`,
+      name: "super-poke",
+      data: {
+        lastCookie: cookie,
+        response,
+      },
+    };
+  });
   for (const part of partition(events, 10)) {
     await pusher.triggerBatch(part);
   }
