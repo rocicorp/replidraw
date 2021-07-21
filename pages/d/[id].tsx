@@ -42,7 +42,7 @@ export default function Home() {
         useMemstore: true,
         name: docID,
         mutators,
-        pushMaxConnections: isHttp2() ? 30 : 1,
+        pushMaxConnections: isHttp2() ? 10 : 1,
       });
 
       const superPokes: Map<string, PullResponse> = new Map();
