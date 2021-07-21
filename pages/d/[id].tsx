@@ -42,7 +42,7 @@ export default function Home() {
         useMemstore: true,
         name: docID,
         mutators,
-        pushMaxConnections: isHttp2() ? 10 : 1,
+        pushMaxConnections: isHttp2() ? 10 : 3,
       });
 
       const superPokes: Map<string, PullResponse> = new Map();
@@ -133,9 +133,11 @@ export default function Home() {
           "]"
         );
         superPokes.set(lastCookie, response);
-        setTimeout(() => {
-          rep.pull();
-        }, 1);
+        rep.pull();
+      });
+
+      channel.bind("poke", () => {
+        rep.pull();
       });
 
       setData(d);

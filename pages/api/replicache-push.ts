@@ -275,10 +275,12 @@ async function getClientIDsAndLastCookies(
 type Poke = {
   channel: string;
   name: string;
-  data: {
-    lastCookie: string;
-    response: PullResponse;
-  };
+  data:
+    | {
+        lastCookie: string;
+        response: PullResponse;
+      }
+    | {};
 };
 
 async function computePokes(
@@ -299,13 +301,20 @@ async function computePokes(
         return null;
       }
 
+      const data = { lastCookie, response };
+      const size = JSON.stringify(data).length;
+      if (size >= 10 * 2 ** 10) {
+        return {
+          channel: `replidraw-${docID}-${clientID}`,
+          name: "poke",
+          data: {},
+        };
+      }
+
       return {
         channel: `replidraw-${docID}-${clientID}`,
         name: "super-poke",
-        data: {
-          lastCookie,
-          response,
-        },
+        data,
       };
     })
   );
