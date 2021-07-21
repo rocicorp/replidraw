@@ -90,7 +90,8 @@ export default function Home() {
           console.log(
             "xxx got super poke with base cookie:",
             prettyPrintCookie(lastCookie),
-            "which has already been handled"
+            "which has already been handled. Wants to move to",
+            prettyPrintCookie(response.cookie)
           );
           return;
         }

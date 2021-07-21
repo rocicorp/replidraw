@@ -23,9 +23,8 @@ import {
   storage,
 } from "../../backend/data";
 import { must } from "../../backend/decode";
-import Pusher from "pusher";
 import type { NextApiRequest, NextApiResponse } from "next";
-import { computePull } from "../../backend/pull";
+import { computePullInTransaction } from "../../backend/pull";
 import { createPusher } from "../../backend/pusher";
 import { PullResponse } from "replicache/out/replicache";
 
@@ -159,6 +158,8 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   // collapse logic anywhere, and (b) we get a nice perf boost by parallelizing
   // the flush at the end.
 
+  let pokes!: Poke[];
+
   const t0 = Date.now();
   await transact(async (executor) => {
     const s = storage(executor, docID);
@@ -226,26 +227,26 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
       s.flush(),
       setLastMutationID(executor, clientID, lastMutationID, docID),
     ]);
+
+    console.log("Processed all mutations in", Date.now() - t0);
+
+    pokes = await computePokes(executor, docID);
   });
 
-  console.log("Processed all mutations in", Date.now() - t0);
-
-  res.status(200).json({});
-
-  let clientInfos!: ClientInfo[];
-  const clientInfosStart = Date.now();
-  await transact(async (executor) => {
-    clientInfos = await getClientIDsAndLastCookies(executor, docID);
-  });
-  console.log("xxx getting client info took", Date.now() - clientInfosStart);
+  res.status(200).end();
 
   const pusher = createPusher();
   const pokeStart = Date.now();
-  console.log("XXX sending", clientInfos.length, " pokes");
-  await sendPokes(clientInfos, docID, pusher);
+  console.log("XXX sending", pokes.length, "pokes");
+  for (const part of partition(pokes, 10)) {
+    for (const poke of part) {
+      console.log("XXX sending poke", poke);
+    }
+    await pusher.triggerBatch(part);
+  }
   console.log(
     "XXX sending",
-    clientInfos.length,
+    pokes.length,
     "pokes DONE",
     Date.now() - pokeStart
   );
@@ -271,47 +272,44 @@ async function getClientIDsAndLastCookies(
   );
 }
 
-async function sendPokes(
-  clientInfos: ClientInfo[],
-  docID: string,
-  pusher: Pusher
-) {
-  let responses!: {
-    clientID: string;
-    cookie: string;
+type Poke = {
+  channel: string;
+  name: string;
+  data: {
+    lastCookie: string;
     response: PullResponse;
-  }[];
+  };
+};
 
-  responses = await Promise.all(
+async function computePokes(
+  executor: ExecuteStatementFn,
+  docID: string
+): Promise<Poke[]> {
+  const clientInfos = await getClientIDsAndLastCookies(executor, docID);
+  const pokes: (Poke | null)[] = await Promise.all(
     clientInfos.map(async ({ lastCookie, clientID }) => {
-      const response = await computePull(lastCookie, clientID, docID);
-      return { clientID, cookie: lastCookie, response };
+      const response = await computePullInTransaction(
+        executor,
+        lastCookie,
+        clientID,
+        docID
+      );
+
+      if (response.cookie === lastCookie) {
+        return null;
+      }
+
+      return {
+        channel: `replidraw-${docID}-${clientID}`,
+        name: "super-poke",
+        data: {
+          lastCookie,
+          response,
+        },
+      };
     })
   );
-
-  const t2 = Date.now();
-  const events = responses.map(({ clientID, cookie, response }) => {
-    console.log(
-      "xxx sending poke to clientID",
-      clientID,
-      "cookie",
-      cookie,
-      "response.cookie",
-      response.cookie
-    );
-    return {
-      channel: `replidraw-${docID}-${clientID}`,
-      name: "super-poke",
-      data: {
-        lastCookie: cookie,
-        response,
-      },
-    };
-  });
-  for (const part of partition(events, 10)) {
-    await pusher.triggerBatch(part);
-  }
-  console.log("Sent pokes in", Date.now() - t2);
+  return pokes.filter(Boolean) as Poke[];
 }
 
 function partition<T>(arr: T[], size: number): T[][] {

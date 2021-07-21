@@ -66,8 +66,7 @@ export async function setLastCookie(
   docID: string
 ): Promise<void> {
   await executor(
-    "INSERT INTO Client (Id, LastMutationID, LastCookie, DocumentID) VALUES (:id, LastMutationID, :lastCookie, :docID) " +
-      "ON DUPLICATE KEY UPDATE LastCookie = :lastCookie",
+    "UPDATE Client SET LastCookie = :lastCookie WHERE Id = :id AND DocumentID = :docID",
     {
       id: { stringValue: clientID },
       lastCookie: { stringValue: lastCookie },
@@ -154,7 +153,7 @@ export function storage(executor: ExecuteStatementFn, docID: string) {
   // this caching internally.
   const cache: {
     [key: string]: { value: JSONValue | undefined; dirty: boolean };
-  } = {};
+  } = Object.create(null);
   return {
     getObject: async (key: string) => {
       const entry = cache[key];

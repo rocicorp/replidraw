@@ -15,31 +15,48 @@ export async function computePull(
   clientID: string,
   docID: string
 ): Promise<PullResponse> {
+  let resp!: PullResponse;
+  await transact(async (executor) => {
+    resp = await computePullInTransaction(
+      executor,
+      requestCookie,
+      clientID,
+      docID
+    );
+  });
+  return resp;
+}
+
+export async function computePullInTransaction(
+  executor: ExecuteStatementFn,
+  requestCookie: string,
+  clientID: string,
+  docID: string
+): Promise<PullResponse> {
   const t0 = Date.now();
   let entries!: ExecuteStatementCommandOutput;
   let lastMutationID!: number;
   let responseCookie!: string;
 
-  await transact(async (executor) => {
-    const s = storage(executor, docID);
-    await initShapes(
-      s,
-      Array.from({ length: 5 }, () => randomShape())
-    );
-    await s.flush();
-    [entries, lastMutationID, responseCookie] = await Promise.all([
-      executor(
-        `SELECT K, V, Deleted FROM Object
+  const s = storage(executor, docID);
+  await initShapes(
+    s,
+    Array.from({ length: 5 }, () => randomShape())
+  );
+  await s.flush();
+  [entries, lastMutationID, responseCookie] = await Promise.all([
+    executor(
+      `SELECT K, V, Deleted FROM Object
           WHERE DocumentID = :docID AND LastModified > FROM_UNIXTIME(:lastmod)`,
-        {
-          docID: { stringValue: docID },
-          lastmod: { stringValue: requestCookie },
-        }
-      ),
-      getLastMutationID(executor, clientID),
-      getCookie(executor, docID),
-    ]);
-  });
+      {
+        docID: { stringValue: docID },
+        lastmod: { stringValue: requestCookie },
+      }
+    ),
+    getLastMutationID(executor, clientID),
+    getCookie(executor, docID),
+  ]);
+
   console.log("lastMutationID: ", lastMutationID);
   console.log("Read all objects in", Date.now() - t0);
 
@@ -76,9 +93,7 @@ export async function computePull(
   }
 
   const setLastCookieStart = Date.now();
-  await transact(async (executor) => {
-    await setLastCookie(executor, clientID, responseCookie, docID);
-  });
+  await setLastCookie(executor, clientID, responseCookie, docID);
   console.log("xxx setting last cookie took", Date.now() - setLastCookieStart);
 
   return resp;
