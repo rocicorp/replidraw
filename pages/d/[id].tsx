@@ -41,7 +41,10 @@ export default function Home() {
           console.log(
             "%cxxx found super poke",
             "color:green",
-            prettyPrintCookie(requestCookie)
+            prettyPrintCookie(requestCookie),
+            "[",
+            performance.now(),
+            "]"
           );
           handledSuperPokes.add(requestCookie);
           superPokes.delete(requestCookie);
@@ -53,13 +56,19 @@ export default function Home() {
           console.log(
             "%cxxx failed to find super poke for",
             "color:red",
-            prettyPrintCookie(requestCookie)
+            prettyPrintCookie(requestCookie),
+            "[",
+            performance.now(),
+            "]"
           );
         }
 
         console.log(
           "xxx doing defaultPuller with request cookie",
-          prettyPrintCookie(requestCookie)
+          prettyPrintCookie(requestCookie),
+          "[",
+          performance.now(),
+          "]"
         );
         const res = await defaultPuller(request);
         console.log(
@@ -88,10 +97,14 @@ export default function Home() {
         const { lastCookie, response } = data;
         if (handledSuperPokes.has(lastCookie)) {
           console.log(
-            "xxx got super poke with base cookie:",
+            "%cxxx got super poke with base cookie:",
+            "color:orange",
             prettyPrintCookie(lastCookie),
             "which has already been handled. Wants to move to",
-            prettyPrintCookie(response.cookie)
+            prettyPrintCookie(response.cookie),
+            "[",
+            performance.now(),
+            "]"
           );
           return;
         }
@@ -99,10 +112,15 @@ export default function Home() {
           "xxx got super poke with base cookie:",
           prettyPrintCookie(lastCookie),
           "response.cookie:",
-          prettyPrintCookie(response.cookie)
+          prettyPrintCookie(response.cookie),
+          "[",
+          performance.now(),
+          "]"
         );
         superPokes.set(lastCookie, response);
-        rep.pull();
+        setTimeout(() => {
+          rep.pull();
+        }, 1);
       });
 
       setData(d);
