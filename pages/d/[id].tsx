@@ -8,6 +8,21 @@ import Pusher from "pusher-js";
 import type { Data } from "../../frontend/data";
 import { randUserInfo } from "../../shared/client-state";
 
+function isHttp2() {
+  const entries = performance.getEntriesByName(location.href);
+  if (entries.length === 0) {
+    return false;
+  }
+  const entry = entries[0] as PerformanceResourceTiming;
+  switch (entry.nextHopProtocol) {
+    case "h2":
+    case "h2c":
+    case "h3":
+      return true;
+  }
+  return false;
+}
+
 export default function Home() {
   const [data, setData] = useState<Data | null>(null);
 
@@ -27,7 +42,7 @@ export default function Home() {
         useMemstore: true,
         name: docID,
         mutators,
-        pushMaxConnections: 3,
+        pushMaxConnections: isHttp2() ? 30 : 1,
       });
 
       const superPokes: Map<string, PullResponse> = new Map();
