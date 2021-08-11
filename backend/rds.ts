@@ -159,7 +159,7 @@ async function executeStatementInDatabase(
       name,
       value,
     }));
-  // console.log("Executing", database, sql, JSON.stringify(params, null, ""));
+  console.log("Executing", database, sql, JSON.stringify(params, null, ""));
   const command = new ExecuteStatementCommand({
     database: database ?? "",
     resourceArn,

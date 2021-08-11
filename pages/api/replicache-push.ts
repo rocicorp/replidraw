@@ -164,7 +164,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   await transact(async (executor) => {
     const s = storage(executor, docID);
 
-    let lastMutationID = await getLastMutationID(executor, clientID);
+    let lastMutationID = await getLastMutationID(executor, clientID, true);
     console.log("lastMutationID:", lastMutationID);
 
     for (const mutation of mutations) {

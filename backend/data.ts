@@ -17,10 +17,11 @@ export async function getCookie(
 
 export async function getLastMutationID(
   executor: ExecuteStatementFn,
-  clientID: string
+  clientID: string,
+  lockForUpdate = false,
 ): Promise<number> {
   const result = await executor(
-    "SELECT LastMutationID FROM Client WHERE Id = :id",
+    `SELECT LastMutationID FROM Client WHERE Id = :id ${lockForUpdate ? 'FOR UPDATE' : ''}`,
     {
       id: { stringValue: clientID },
     }
