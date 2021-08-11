@@ -35,16 +35,23 @@ export async function setLastMutationID(
   lastMutationID: number,
   docID: string
 ): Promise<void> {
+  const params = {
+    id: { stringValue: clientID },
+    docID: { stringValue: docID },
+    lastMutationID: { longValue: lastMutationID },
+  };
+  // This looks like a funny way to upsert, but it has advantages:
+  // 1: This is actually a lot faster assuming the data is usually present
+  // 2: The more classic ON CONFLICT approach creates gap locks. Since the SELECT ... FOR UPDATE we
+  // are using in getLastMutationID does *not* acquire a gap lock, we need to match, otherwise we
+  // can deadlock waiting for a different type of lock here than what getLastMutationID got.
+  const result = await executor(
+    'UPDATE Client SET LastMutationID = :lastMutationID, DocumentID = :docID WHERE Id = :id', params);
+  if (result.numberOfRecordsUpdated == 1) {
+    return;
+  }
   await executor(
-    `INSERT INTO Client (Id, LastMutationID, LastCookie, DocumentID) 
-    VALUES (:id, :lastMutationID, LastCookie, :docID)
-    ON DUPLICATE KEY UPDATE Id = :id, LastMutationID = :lastMutationID, DocumentID = :docID`,
-    {
-      id: { stringValue: clientID },
-      lastMutationID: { longValue: lastMutationID },
-      docID: { stringValue: docID },
-    }
-  );
+    'INSERT INTO Client (Id, DocumentID, LastMutationID) VALUES (:id, :docID, :lastMutationID)', params);
 }
 
 export async function getLastCookie(
