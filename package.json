@@ -12,7 +12,6 @@
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.6.1",
     "bootstrap": "^4.6.0",
-    "cubic-hermite": "^1.0.0",
     "fp-ts": "^2.9.5",
     "io-ts": "^2.2.16",
     "nanoid": "^3.1.23",
