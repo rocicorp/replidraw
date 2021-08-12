@@ -233,8 +233,6 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     pokes = await computePokes(executor, docID);
   });
 
-  res.status(200).end();
-
   const pusher = createPusher();
   const pokeStart = Date.now();
   console.log("XXX sending", pokes.length, "pokes");
@@ -250,6 +248,8 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     "pokes DONE",
     Date.now() - pokeStart
   );
+
+  res.status(200).end();
 };
 
 type ClientInfo = { lastCookie: string; clientID: string };
