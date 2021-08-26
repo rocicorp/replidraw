@@ -1,5 +1,7 @@
 // This is the Edge Chat Demo Worker, built using Durable Objects!
 
+import { handlePush } from "./push";
+
 // ===============================
 // Introduction to Modules
 // ===============================
@@ -96,6 +98,8 @@ export class Room {
     const url = new URL(request.url);
 
     switch (url.pathname) {
+      case "/replicache-push":
+        return await handlePush(this.storage, request);
       case "/replicache-pull": {
         return new Response(JSON.stringify(`{"foo":"bar"}`, null, 2), {
           headers: {
