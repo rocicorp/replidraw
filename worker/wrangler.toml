@@ -1,0 +1,14 @@
+name = "replidraw-worker"
+type = "javascript"
+workers_dev = true
+account_id = "085f6d8eb08e5b23debfb08b21bda1eb"
+
+[build.upload]
+format = "modules"
+dir = "src"
+main = "./main.mjs"
+
+[durable_objects]
+bindings = [
+  { name = "rooms", class_name = "Room" }
+]

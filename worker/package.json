@@ -1,0 +1,7 @@
+{
+  "name": "replidraw-worker",
+  "description": "Cloudflare Worker Backend for Replidraw",
+  "version": "1.0.0",
+  "module": "./main.mjs",
+  "private": true
+}
