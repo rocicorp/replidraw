@@ -3,9 +3,12 @@ type = "javascript"
 workers_dev = true
 account_id = "085f6d8eb08e5b23debfb08b21bda1eb"
 
+[build]
+command = "npm install && npm run build"
+
 [build.upload]
 format = "modules"
-dir = "src"
+dir = "dist"
 main = "./main.mjs"
 
 [durable_objects]

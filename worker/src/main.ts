@@ -55,7 +55,7 @@
 // to a handler named `scheduled`, which should be exported here in a similar way. We will be
 // adding other handlers for other types of events over time.
 export default {
-  async fetch(request, env) {
+  async fetch(request: Request, env: {[key: string]: DurableObjectNamespace}): Promise<Response> {
     console.log("handling request for", request.url);
     const url = new URL(request.url);
     const docID = url.searchParams.get("docID");
@@ -71,7 +71,7 @@ export default {
     // created on-demand when the ID is first used, there's nothing to wait for anyway; we know
     // an object will be available somewhere to receive our requests.
     const roomObject = env.rooms.get(env.rooms.idFromName(docID));
-    return roomObject.fetch(url, request);
+    return roomObject.fetch(request.url, request);
   }
 }
 
@@ -80,22 +80,19 @@ export default {
 
 // Chat implements a Durable Object that coordinates an individual Replicache "room".
 export class Room {
-  constructor(controller, env) {
+  private storage: DurableObjectStorage;
+
+  constructor(controller: DurableObjectState) {
     // `controller.storage` provides access to our durable storage. It provides a simple KV
     // get()/put() interface.
     this.storage = controller.storage;
-
-    // `env` is our environment bindings (discussed earlier).
-    this.env = env;
-
-    this.messagesSorted = null;
   }
 
   // The system will call fetch() whenever an HTTP request is sent to this Object. Such requests
   // can only be sent from other Worker code, such as the code above; these requests don't come
   // directly from the internet. In the future, we will support other formats than HTTP for these
   // communications, but we started with HTTP for its familiarity.
-  async fetch(request) {
+  async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
     switch (url.pathname) {
