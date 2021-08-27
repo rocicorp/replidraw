@@ -1,11 +1,11 @@
-import { pushRequestBodySchema } from "./replicache-protocol-schemas";
+import { pushRequestSchema } from "./replicache-protocol-schemas";
 import type { Mutation } from "./replicache-protocol-types";
 import { mutators } from "../../frontend/data";
-import { z } from "zod";
 import { Write } from "./write";
+import { getLastMutationID, setLastMutationID } from "./client";
 
 export async function handlePush(storage: DurableObjectStorage, req: Request): Promise<Response> {
-  const body = pushRequestBodySchema.parse(await req.json());
+  const body = pushRequestSchema.parse(await req.json());
   const runTransaction = async (txn: DurableObjectTransaction) => {
     let lastMutationID = await getLastMutationID(txn, body.clientID);
     const write = new Write(txn, Date.now()); 
@@ -32,7 +32,7 @@ export async function handlePush(storage: DurableObjectStorage, req: Request): P
       }
     }
 
-    return new Response("OK", {status: 200});
+    return new Response("👍", {status: 200});
   };
 
   let response: Response|undefined = undefined;
@@ -40,7 +40,7 @@ export async function handlePush(storage: DurableObjectStorage, req: Request): P
     response = await runTransaction(txn);
   });
 
-  return response as any as Response;
+  return response as unknown as Response;
 }
 
 async function applyMutation(write: Write, mutation: Mutation): Promise<void> {
@@ -52,14 +52,3 @@ async function applyMutation(write: Write, mutation: Mutation): Promise<void> {
   }
   await mutator(write, ...(mutation.args ?? []));
 }
-
-async function getLastMutationID(txn: DurableObjectTransaction, clientID: string): Promise<number> {
-  const lastMutationID = await txn.get(lmidKey(clientID));
-  return z.number().int().positive().optional().parse(lastMutationID) ?? 0;
-}
-
-async function setLastMutationID(txn: DurableObjectTransaction, clientID: string, value: number): Promise<void> {
-  await txn.put(lmidKey(clientID), value);
-}
-
-const lmidKey = (clientID: string) => `/sys/client/${clientID}`;

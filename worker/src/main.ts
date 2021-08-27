@@ -1,5 +1,6 @@
 // This is the Edge Chat Demo Worker, built using Durable Objects!
 
+import { handlePull } from "./pull";
 import { handlePush } from "./push";
 
 // ===============================
@@ -100,13 +101,8 @@ export class Room {
     switch (url.pathname) {
       case "/replicache-push":
         return await handlePush(this.storage, request);
-      case "/replicache-pull": {
-        return new Response(JSON.stringify(`{"foo":"bar"}`, null, 2), {
-          headers: {
-            "Content-Type": "application/json",
-          }
-        });
-      }
+      case "/replicache-pull":
+        return await handlePull(this.storage, request);
       default:
         return new Response("Not found", {status: 404});
     }

@@ -1,4 +1,7 @@
-export type PushRequestBody = {
+// ts-to-zod can't handle circluar types :-/.
+type JSONValue = any;
+
+export type PushRequest = {
   clientID: string;
   mutations: Mutation[];
   pushVersion: number;
@@ -8,5 +11,27 @@ export type PushRequestBody = {
 export type Mutation = {
   id: number;
   name: string;
-  args?: any;  // actually required JSONValue, but circular types not allowed by zod
+  args?: JSONValue;
 };
+
+export type PullRequest = {
+  clientID: string;
+  cookie?: JSONValue;
+  pullVersion: number;
+  schemaVersion: string;
+};
+
+export type PullResponse = {
+  cookie?: JSONValue;
+  lastMutationID: number;
+  patch: PatchOperation[];
+};
+
+export type PatchOperation =
+  | {
+      op: 'put';
+      key: string;
+      value?: JSONValue;
+    }
+  | {op: 'del'; key: string}
+  | {op: 'clear'};

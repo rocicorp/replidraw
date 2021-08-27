@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc && mv dist/main.js dist/main.mjs && mv dist/main.js.map dist/main.mjs.map",
     "format": "prettier --write  '*.{json,js}' 'src/**/*.{js,ts}' 'test/**/*.{js,ts}'",
-    "lint": "eslint --max-warnings=0 src && prettier --check '*.{json,js}' 'src/**/*.{js,ts}' 'test/**/*.{js,ts}'"
+    "lint": "eslint --max-warnings=0 src && prettier --check '*.{json,js}' 'src/**/*.{js,ts}' 'test/**/*.{js,ts}'",
+    "zodgen": "ts-to-zod src/replicache-protocol-types.ts src/replicache-protocol-schemas.ts"
   },
   "eslintConfig": {
     "root": true,

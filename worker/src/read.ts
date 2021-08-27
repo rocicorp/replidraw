@@ -8,27 +8,27 @@ const entrySchema = z.object({
 });
 
 export class Read implements ReadTransaction {
-  protected tx: DurableObjectTransaction;
+  protected durable: DurableObjectOperator;
 
-  constructor(tx: DurableObjectTransaction) {
-    this.tx = tx;
+  constructor(durable: DurableObjectOperator) {
+    this.durable = durable;
   }
 
   async get(key: string): Promise<JSONValue|undefined> {
-    const entry = entrySchema.parse(await this.tx.get(usrKey(key)));
+    const entry = entrySchema.parse(await this.durable.get(usrKey(key)));
     return entry.value;
   }
 
   async has(key: string): Promise<boolean> {
-    return (await this.tx.get(usrKey(key))) !== undefined;
+    return (await this.durable.get(usrKey(key))) !== undefined;
   }
 
   async set(key: string, value: JSONValue): Promise<void> {
-    await this.tx.put(usrKey(key), value);
+    await this.durable.put(usrKey(key), value);
   }
 
   async isEmpty(): Promise<boolean> {
-    return (await this.tx.list({limit: 1})).size !== 0;
+    return (await this.durable.list({limit: 1})).size !== 0;
   }
 
   scan(options?: ScanOptions): ScanResult<string> {
