@@ -9,7 +9,7 @@ command = "npm install && npm run build"
 [build.upload]
 format = "modules"
 dir = "dist"
-main = "./main.mjs"
+main = "./worker/src/main.mjs"
 
 [durable_objects]
 bindings = [

@@ -1,6 +1,6 @@
 import { pushRequestSchema } from "./replicache-protocol-schemas";
 import type { Mutation } from "./replicache-protocol-types";
-import { mutators } from "../../frontend/data";
+import { mutators } from "../../shared/mutators";
 import { Write } from "./write";
 import { getLastMutationID, setLastMutationID } from "./client";
 

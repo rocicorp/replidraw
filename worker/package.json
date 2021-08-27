@@ -2,10 +2,10 @@
   "name": "replidraw-worker",
   "description": "Cloudflare Worker Backend for Replidraw",
   "version": "1.0.0",
-  "module": "./dist/main.mjs",
   "private": true,
+  "module": "./dist/worker/src/main.mjs",
   "scripts": {
-    "build": "tsc && mv dist/main.js dist/main.mjs && mv dist/main.js.map dist/main.mjs.map",
+    "build": "tsc && renamer --force --find '/\\.js(\\.map)?$/' --replace '.mjs$1' './dist/**/*.*'",
     "format": "prettier --write  '*.{json,js}' 'src/**/*.{js,ts}' 'test/**/*.{js,ts}'",
     "lint": "eslint --max-warnings=0 src && prettier --check '*.{json,js}' 'src/**/*.{js,ts}' 'test/**/*.{js,ts}'",
     "zodgen": "ts-to-zod src/replicache-protocol-types.ts src/replicache-protocol-schemas.ts"
@@ -28,6 +28,7 @@
     "typescript": "^4.3.2"
   },
   "dependencies": {
+    "renamer": "^3.2.1",
     "ts-to-zod": "^1.4.0",
     "zod": "^3.8.1"
   }
