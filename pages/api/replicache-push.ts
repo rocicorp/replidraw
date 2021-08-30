@@ -239,7 +239,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   });
 
   const t2 = Date.now();
-  await pusher.trigger("default", "poke", {});
+  await pusher.trigger(docID, "poke", {});
   console.log("Sent poke in", Date.now() - t2);
 
   res.status(200).json({});

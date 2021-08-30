@@ -36,7 +36,7 @@ export default function Home() {
       var pusher = new Pusher("d9088b47d2371d532c4c", {
         cluster: "us3",
       });
-      var channel = pusher.subscribe("default");
+      var channel = pusher.subscribe(docID);
       channel.bind("poke", function (data: unknown) {
         rep.pull();
       });
