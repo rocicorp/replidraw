@@ -1,0 +1,67 @@
+{
+  "name": "replicache",
+  "description": "Realtime sync for any backend stack",
+  "version": "7.0.0-beta.2",
+  "repository": "github:rocicorp/replicache",
+  "license": "BSL-1.1",
+  "scripts": {
+    "test": "web-test-runner",
+    "test:watch": "web-test-runner --watch",
+    "format": "prettier --write '{doc,src,sample,perf}/**/*.{js,jsx,json,ts,tsx,html,css,md}' '*.{js,jsx,json,ts,tsx,html,css,md}'",
+    "check-format": "prettier --check '{doc,src,sample,perf}/**/*.{js,jsx,json,ts,tsx,html,css,md}' '*.{js,jsx,json,ts,tsx,html,css,md}'",
+    "lint": "eslint --ext .ts,.tsx,.js,.jsx src/ perf/",
+    "build-dts": "rm -rf out/.dts/ && tsc --emitDeclarationOnly --outDir out/.dts/ && rollup --config rollup.config.js && rm -rf out/.dts",
+    "build-mjs": "esbuild --bundle --target=es2018 --outfile=out/replicache.mjs --format=esm src/mod.ts",
+    "build-cjs": "esbuild --bundle --target=es2018 --outfile=out/replicache.js --format=cjs src/mod.ts",
+    "build": "rm -rf out && npm run build-dts && npm run build-mjs && npm run build-cjs",
+    "prepack": "npm run lint && npm run test && npm run build",
+    "prepare": "rm -f node_modules/fetch-mock/esm/client.d.ts",
+    "perf": "node perf/runner.js"
+  },
+  "devDependencies": {
+    "@esm-bundle/chai": "^4.3.4",
+    "@types/mocha": "^8.2.2",
+    "@types/sinon": "^10.0.2",
+    "@typescript-eslint/eslint-plugin": "^4.29.1",
+    "@typescript-eslint/parser": "^4.29.1",
+    "@web/dev-server": "0.1.20",
+    "@web/dev-server-esbuild": "^0.2.12",
+    "@web/test-runner": "^0.13.15",
+    "@web/test-runner-playwright": "^0.8.6",
+    "benchmark": "^2.1.4",
+    "eslint": "^7.32.0",
+    "fetch-mock": "^9.11.0",
+    "get-port": "^5.1.1",
+    "idb": "^6.1.3",
+    "playwright": "^1.13.1",
+    "prettier": "^2.3.2",
+    "rollup": "^2.56.3",
+    "rollup-plugin-dts": "^3.0.2",
+    "sinon": "^11.1.2",
+    "typedoc": "^0.21.5",
+    "typedoc-plugin-sourcefile-url": "^1.0.6",
+    "typescript": "^4.3.5",
+    "xbytes": "^1.7.0"
+  },
+  "main": "out/replicache.js",
+  "module": "out/replicache.mjs",
+  "types": "out/replicache.d.ts",
+  "exports": {
+    "module": "./out/replicache.mjs",
+    "require": "./out/replicache.js",
+    "default": "./out/replicache.mjs"
+  },
+  "files": [
+    "out/replicache.d.ts",
+    "out/replicache.js",
+    "out/replicache.mjs",
+    "out/replicache.wasm",
+    "out/replicache.dev.wasm"
+  ],
+  "dependencies": {
+    "@types/lodash-es": "^4.17.4",
+    "flatbuffers": "^2.0.3",
+    "hash-wasm": "^4.9.0",
+    "lodash-es": "^4.17.21"
+  }
+}
