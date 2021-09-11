@@ -31,7 +31,6 @@ export default function Home() {
       const rep = new Replicache({
         pushURL: `http${workerSecureSuffix}://${workerHost}/replicache-push?docID=${docID}`,
         pullURL: `http${workerSecureSuffix}://${workerHost}/replicache-pull?docID=${docID}`,
-        wasmModule: isProd ? "/replicache.wasm" : "/replicache.dev.wasm",
         useMemstore: true,
         name: docID,
         mutators,
