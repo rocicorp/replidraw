@@ -18,16 +18,19 @@ export default function Home() {
         return;
       }
 
-      const [, , docID] = location.pathname.split("/");
-      const isProd = location.host.indexOf(".vercel.app") > -1;
-      const host = isProd
+      const url = new URL(location.href);
+      const [, , docID] = url.pathname.split("/");
+      const wantsProd = url.searchParams.get("prod-worker");
+      const isProd = (wantsProd !== null && (wantsProd === "1" || wantsProd.toLowerCase() === "true")) ||
+        url.host.indexOf(".vercel.app") > -1;
+      const workerHost = isProd
         ? `replicache-worker.replicache.workers.dev`
         : `127.0.0.1:8787`;
-      const secureSuffix = isProd ? "s" : "";
+      const workerSecureSuffix = isProd ? "s" : "";
 
       const rep = new Replicache({
-        pushURL: `http${secureSuffix}://${host}/replicache-push?docID=${docID}`,
-        pullURL: `http${secureSuffix}://${host}/replicache-pull?docID=${docID}`,
+        pushURL: `http${workerSecureSuffix}://${workerHost}/replicache-push?docID=${docID}`,
+        pullURL: `http${workerSecureSuffix}://${workerHost}/replicache-pull?docID=${docID}`,
         wasmModule: isProd ? "/replicache.wasm" : "/replicache.dev.wasm",
         useMemstore: true,
         name: docID,
@@ -38,7 +41,7 @@ export default function Home() {
       const d = await createData(rep, defaultUserInfo);
 
       console.log("Connecting to web socket...");
-      const ws = new WebSocket(`ws${secureSuffix}://${host}/replicache-poke`);
+      const ws = new WebSocket(`ws${workerSecureSuffix}://${workerHost}/replicache-poke`);
       ws.addEventListener("open", () => {
         console.log("connected ... yay");
       });
