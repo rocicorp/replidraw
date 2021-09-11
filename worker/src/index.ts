@@ -25,8 +25,9 @@ async function handleRequest(request: Request, env: Env) {
   let id = env.DurableReplicache.idFromName('A')
   let obj = env.DurableReplicache.get(id)
   const response = await obj.fetch(request)
-  response.headers.set('Access-Control-Allow-Origin', '*')
-  return response
+  const corsResponse = new Response(response.body, response)
+  corsResponse.headers.set('Access-Control-Allow-Origin', '*')
+  return corsResponse
 }
 
 interface Env {
