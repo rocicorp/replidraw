@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "declaration": true,
     "target": "esnext",
     "lib": ["esnext", "webworker"],
     "alwaysStrict": true,
