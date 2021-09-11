@@ -11,17 +11,53 @@ import { ScanResult } from "./replicache/src/scan-iterator";
 import { PullRequest } from "./replicache/src/sync/pull";
 import { mutators } from "../../frontend/data";
 
+declare global {
+  interface WebSocket {
+    accept(): void;
+  }
+
+  class WebSocketPair {
+    0: WebSocket;
+    1: WebSocket;
+  }
+
+  interface ResponseInit {
+    webSocket?: WebSocket;
+  }
+}
+
 export class DurableReplicache {
   _store: DAGStore;
+  _sockets: WebSocket[];
 
   constructor(state: DurableObjectState, env: Env) {
     this._store = new DAGStore(new KVStore(state));
+    this._sockets = [];
   }
 
   // Handle HTTP requests from clients.
   async fetch(request: Request) {
     try {
       return await this._store.withWrite(async (tx) => {
+        let url = new URL(request.url);
+        if (url.pathname == "/replicache-poke") {
+          if (request.headers.get("Upgrade") != "websocket") {
+            return new Response("expected websocket", {status: 400});
+          }
+          console.log("Initializing WebSocket...");
+          const pair = new WebSocketPair();
+          const {0: server, 1: client} = pair;
+          server.onopen = () => {
+            console.log("WebSocket is open")
+          };
+          server.onclose = () => {
+            console.log("WebSocket has closed :-(")
+            this._sockets = this._sockets.filter((s) => s != server);
+          };
+          this._sockets.push(server);
+          return new Response(null, { status: 101, webSocket: client });
+        }
+
         const read = tx.read();
         let mainHash = (await read.getHead("main")) ?? null;
         const commit = await (mainHash ? loadCommit(read, mainHash) : initChain(tx));
@@ -31,12 +67,11 @@ export class DurableReplicache {
 
         // Apply requested action.
         try {
-          let url = new URL(request.url);
           switch (url.pathname) {
             case "/replicache-pull":
               return await pull(commit, mainHash, read, request);
             case "/replicache-push":
-              return await push(commit, mainHash, request);
+              return await push(commit, mainHash, request, this._sockets);
           }
           return new Response("ok");
         } finally {
@@ -91,7 +126,7 @@ class WriteTransactionImpl implements WriteTransaction {
   }
 }
 
-async function push(commit: LoadedCommit, headHash: string|null, request: Request): Promise<Response> {
+async function push(commit: LoadedCommit, headHash: string|null, request: Request, sockets: WebSocket[]): Promise<Response> {
   const pushRequest = (await request.json()) as PushRequest; // TODO: validate
   let lastMutationID = await getLastMutationID(commit, pushRequest.clientID);
 
@@ -126,6 +161,12 @@ async function push(commit: LoadedCommit, headHash: string|null, request: Reques
 
   if (headHash !== null) {
     await pushHistory(commit, headHash);
+  }
+
+  const payload = Date();
+  console.log(`Sending poke to ${sockets.length} clients...`);
+  for (const socket of sockets) {
+    socket.send(payload);
   }
 
   return new Response("OK");
