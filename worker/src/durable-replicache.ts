@@ -9,15 +9,7 @@ import { deepThaw, JSONValue } from "./replicache/src/json";
 import { PushRequest } from "./replicache/src/sync/push";
 import { ScanResult } from "./replicache/src/scan-iterator";
 import { PullRequest } from "./replicache/src/sync/pull";
-
-const mutators = {
-  "put": async (tx: WriteTransaction, args: {key: string, value: string}) => {
-    await tx.put(args.key, args.value);
-  },
-  "del": async (tx: WriteTransaction, args: {key: string}) => {
-    await tx.del(args.key);
-  },
-};
+import { mutators } from "../../frontend/data";
 
 export class DurableReplicache {
   _store: DAGStore;
