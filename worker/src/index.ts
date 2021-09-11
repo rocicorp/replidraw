@@ -5,6 +5,15 @@ export { DurableReplicache } from './durable-replicache';
 export default {
   async fetch(request: Request, env: Env) {
     try {
+      if (request.method == 'OPTIONS') {
+        return new Response(null, {
+          headers: {
+              'Access-Control-Allow-Origin':  '*',
+              'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+              'Access-Control-Allow-Headers': '*',
+          },
+        })
+      }
       return await handleRequest(request, env)
     } catch (e) {
       return new Response(e.message)
@@ -15,7 +24,9 @@ export default {
 async function handleRequest(request: Request, env: Env) {
   let id = env.DurableReplicache.idFromName('A')
   let obj = env.DurableReplicache.get(id)
-  return await obj.fetch(request)
+  const response = await obj.fetch(request)
+  response.headers.set('Access-Control-Allow-Origin', '*')
+  return response
 }
 
 interface Env {

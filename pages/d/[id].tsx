@@ -8,6 +8,12 @@ import Pusher from "pusher-js";
 import type { Data } from "../../frontend/data";
 import { randUserInfo } from "../../shared/client-state";
 
+function workerURL(isProd: boolean, path: string) {
+  return isProd
+    ? `https://replicache-worker.replicache.workers.dev/${path}`
+    : `http://127.0.0.1:8787/${path}`;
+}
+
 export default function Home() {
   const [data, setData] = useState<Data | null>(null);
 
@@ -21,8 +27,8 @@ export default function Home() {
       const [, , docID] = location.pathname.split("/");
       const isProd = location.host.indexOf(".vercel.app") > -1;
       const rep = new Replicache({
-        pushURL: `/api/replicache-push?docID=${docID}`,
-        pullURL: `/api/replicache-pull?docID=${docID}`,
+        pushURL: workerURL(isProd, `replicache-push?docID=${docID}`),
+        pullURL: workerURL(isProd, `replicache-pull?docID=${docID}`),
         wasmModule: isProd ? "/replicache.wasm" : "/replicache.dev.wasm",
         useMemstore: true,
         name: docID,
