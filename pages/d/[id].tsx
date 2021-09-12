@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Replicache } from "replicache";
-import { createData, mutators } from "../../frontend/data";
-import { Designer } from "../../frontend/designer";
-import { Nav } from "../../frontend/nav";
+import { createData, mutators } from "../../src/data";
+import { Designer } from "../../src/designer";
+import { Nav } from "../../src/nav";
 
-import type { Data } from "../../frontend/data";
-import { randUserInfo } from "../../shared/client-state";
+import type { Data } from "../../src/data";
+import { randUserInfo } from "../../src/client-state";
 
 export default function Home() {
   const [data, setData] = useState<Data | null>(null);

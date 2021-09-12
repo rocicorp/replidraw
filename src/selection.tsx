@@ -1,7 +1,7 @@
 import { Data } from "./data";
 import { Rect } from "./rect";
 import { DraggableCore, DraggableEvent, DraggableData } from "react-draggable";
-import { Shape } from "../shared/shape";
+import { Shape } from "./shape";
 
 export function Selection({
   data,

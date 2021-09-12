@@ -11,7 +11,7 @@ import {
   deleteShape,
   randomShape,
   initShapes,
-} from "../shared/shape";
+} from "./shape";
 import {
   getClientState,
   overShape,
@@ -19,9 +19,9 @@ import {
   setCursor,
   keyPrefix as clientStatePrefix,
   selectShape,
-} from "../shared/client-state";
-import type { ReadStorage, WriteStorage } from "../shared/storage";
-import type { UserInfo } from "../shared/client-state";
+} from "./client-state";
+import type { ReadStorage, WriteStorage } from "./storage";
+import type { UserInfo } from "./client-state";
 
 /**
  * Abstracts Replicache storage (key/value pairs) to entities (Shape).
