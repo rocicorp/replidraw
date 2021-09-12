@@ -3,7 +3,6 @@ import { Replicache } from "replicache";
 import { createData, mutators } from "../../frontend/data";
 import { Designer } from "../../frontend/designer";
 import { Nav } from "../../frontend/nav";
-import Pusher from "pusher-js";
 
 import type { Data } from "../../frontend/data";
 import { randUserInfo } from "../../shared/client-state";
