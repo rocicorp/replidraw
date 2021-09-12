@@ -4,6 +4,11 @@ export { DurableReplicache } from './durable-replicache';
 
 export default {
   async fetch(request: Request, env: Env) {
+    const url = new URL(request.url);
+    const room = url.searchParams.get('room')
+    if (room === null) {
+      return new Response('room parameter required', {status: 400})
+    }
     try {
       if (request.method == 'OPTIONS') {
         return new Response(null, {
@@ -14,15 +19,15 @@ export default {
           },
         })
       }
-      return await handleRequest(request, env)
+      return await handleRequest(request, env, room)
     } catch (e) {
       return new Response(e.message)
     }
   },
 }
 
-async function handleRequest(request: Request, env: Env) {
-  let id = env.DurableReplicache.idFromName('A')
+async function handleRequest(request: Request, env: Env, room: string) {
+  let id = env.DurableReplicache.idFromName(room)
   let obj = env.DurableReplicache.get(id)
   const response = await obj.fetch(request)
   const corsResponse = new Response(response.body, response)

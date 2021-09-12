@@ -19,7 +19,7 @@ export default function Home() {
       }
 
       const url = new URL(location.href);
-      const [, , docID] = url.pathname.split("/");
+      const [, , room] = url.pathname.split("/");
       const wantsProd = url.searchParams.get("prod-worker");
       const isProd = (wantsProd !== null && (wantsProd === "1" || wantsProd.toLowerCase() === "true")) ||
         url.host.indexOf(".vercel.app") > -1;
@@ -28,11 +28,14 @@ export default function Home() {
         : `127.0.0.1:8787`;
       const workerSecureSuffix = isProd ? "s" : "";
 
+      const workerURL = (protocol: string, path: string) => {
+        return `${protocol}${workerSecureSuffix}://${workerHost}/${path}?room=${room}`;
+      }
+
       const rep = new Replicache({
-        pushURL: `http${workerSecureSuffix}://${workerHost}/replicache-push?docID=${docID}`,
-        pullURL: `http${workerSecureSuffix}://${workerHost}/replicache-pull?docID=${docID}`,
+        pushURL: workerURL('http', 'replicache-push'),
+        pullURL: workerURL('http', 'replicache-pull'),
         useMemstore: true,
-        name: docID,
         mutators,
       });
 
@@ -40,7 +43,7 @@ export default function Home() {
       const d = await createData(rep, defaultUserInfo);
 
       console.log("Connecting to web socket...");
-      const ws = new WebSocket(`ws${workerSecureSuffix}://${workerHost}/replicache-poke`);
+      const ws = new WebSocket(workerURL('ws', 'replicache-poke'));
       ws.addEventListener("open", () => {
         console.log("connected ... yay");
       });

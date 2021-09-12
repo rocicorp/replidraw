@@ -47,6 +47,7 @@ export class DurableReplicache {
           console.log("Initializing WebSocket...");
           const pair = new WebSocketPair();
           const {0: server, 1: client} = pair;
+          server.accept();
           server.onopen = () => {
             console.log("WebSocket is open")
           };
