@@ -41,13 +41,12 @@ export default function Home() {
       const defaultUserInfo = randUserInfo();
       const d = await createData(rep, defaultUserInfo);
 
-      console.log("Connecting to web socket...");
       const ws = new WebSocket(workerURL('ws', 'replicache-poke'));
       ws.addEventListener("open", () => {
-        console.log("connected ... yay");
+        console.log("Connected to WebSocket");
       });
       ws.addEventListener("message", () => {
-        console.log("got poked, pulling");
+        console.debug('Received poke, pulling');
         rep.pull();
       });
 
