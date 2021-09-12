@@ -6,6 +6,7 @@ import { Nav } from "../../src/nav";
 
 import type { Data } from "../../src/data";
 import { randUserInfo } from "../../src/client-state";
+import { init } from "../../worker/src/replicache/src/sync/client-id";
 
 export default function Home() {
   const [data, setData] = useState<Data | null>(null);
@@ -41,14 +42,37 @@ export default function Home() {
       const defaultUserInfo = randUserInfo();
       const d = await createData(rep, defaultUserInfo);
 
-      const ws = new WebSocket(workerURL('ws', 'replicache-poke'));
-      ws.addEventListener("open", () => {
-        console.log("Connected to WebSocket");
-      });
-      ws.addEventListener("message", () => {
-        console.debug('Received poke, pulling');
-        rep.pull();
-      });
+      let ws: WebSocket;
+
+      const initSocket = () => {
+        if (ws !== undefined && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+          return;
+        }
+        console.debug("Connecting WebSocket...");
+        ws = new WebSocket(workerURL('ws', 'replicache-poke'));
+        ws.onopen = () => {
+          console.log("Connected to WebSocket");
+          rep.pull();
+        };
+        ws.onmessage = () => {
+          console.debug('Received poke, pulling');
+          rep.pull();
+        };
+        ws.onerror = (e) => {
+          console.error("Error from WebSocket", e);
+        };
+        ws.onclose = () => {
+          console.log("Disconnected from WebSocket. Will reconnect on next interaction");
+        };
+      };
+      initSocket();
+
+      // TODO: This is a hack to make sure the socket is connected. Do this properly with
+      // addEventListener(), but need to removeEventListener() too and can't do that because
+      // this is async, gar.
+      window.onfocus = initSocket;
+      window.onmousemove = initSocket;
+      window.ontouchstart = initSocket;
 
       setData(d);
     })();

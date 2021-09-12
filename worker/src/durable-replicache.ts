@@ -37,6 +37,7 @@ export class DurableReplicache {
 
   // Handle HTTP requests from clients.
   async fetch(request: Request) {
+    const t0 = Date.now();
     try {
       return await this._store.withWrite(async (tx) => {
         let url = new URL(request.url);
@@ -81,6 +82,8 @@ export class DurableReplicache {
       });
     } catch (e) {
       return new Response(e.toString(), { status: 500 });
+    } finally {
+      console.log(`Processed ${request.url} in ${Date.now() - t0}ms`);
     }
   }
 }
