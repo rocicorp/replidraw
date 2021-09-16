@@ -14,6 +14,7 @@ export type LoadedCommit = {
 
 type Client = {
   lastMutationID: number;
+  lastCookie: string|null;
 }
 
 type CommitData = {
@@ -42,22 +43,21 @@ export async function pushHistory(commit: LoadedCommit, prevCommitHash: string) 
   }
 }
 
-export async function getLastMutationID(commit: LoadedCommit, clientID: string) {
+export async function getClient(commit: LoadedCommit, clientID: string): Promise<Client> {
   let val = commit.clientData.get(clientID);
-  if (val === null || val === undefined) {
-    val = { lastMutationID: 0 }
-    commit.clientData.put(clientID, val);
-    return 0;
+  if (val) {
+    return deepThaw(val) as Client;
   }
-  val = val as ReadonlyJSONValue;
-  const client = deepThaw(val) as Client;
-  return client.lastMutationID;
+  const client: Client = {
+    lastCookie: null,
+    lastMutationID: 0,
+  };
+  setClient(commit, clientID, client);
+  return client;
 }
 
-export async function setLastMutationID(commit: LoadedCommit, clientID: string, lastMutationID: number) {
-  const val = (await commit.clientData.get(clientID)) as Client;
-  val.lastMutationID = lastMutationID;
-  commit.clientData.put(clientID, val);
+export function setClient(commit: LoadedCommit, clientID: string, client: Client) {
+  commit.clientData.put(clientID, client);
 }
 
 export async function flushCommit(write: Write, commit: LoadedCommit): Promise<void> {
@@ -100,11 +100,12 @@ export async function initChain(write: Write) {
     clientsHash: emptyMapHash,
     historyData: [],
   };
-  await write.putChunk(await Chunk.new(commit, [emptyMapHash]));
+  const chunk = await Chunk.new(commit, [emptyMapHash]);
+  await write.putChunk(chunk);
   const loaded: LoadedCommit = {
     data: commit,
     userData: map,
     clientData: ProllyMap.new(),
   };
-  return loaded;
+  return [loaded, chunk.hash] as const;
 }

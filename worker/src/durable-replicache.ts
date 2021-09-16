@@ -1,7 +1,7 @@
 import { StoreImpl as KVStore } from "./kv";
 import { Store as DAGStore } from "./replicache/src/dag/store";
 import { Map as ProllyMap } from "./replicache/src/prolly/map";
-import { flushCommit, getLastMutationID, initChain, loadCommit, LoadedCommit, pushHistory, readCommit, setLastMutationID } from "./commit";
+import { flushCommit, getClient, initChain, loadCommit, LoadedCommit, pushHistory, readCommit, setClient } from "./commit";
 import { WriteTransaction } from "./replicache/src/transactions";
 import { Read } from "./replicache/src/dag/read";
 import { PullResponse } from "./replicache/src/puller";
@@ -61,10 +61,16 @@ export class DurableReplicache {
         }
 
         const read = tx.read();
-        let mainHash = (await read.getHead("main")) ?? null;
-        const commit = await (mainHash ? loadCommit(read, mainHash) : initChain(tx));
-        if (!commit) {
-          throw new Error(`Corrupt database: could not find headHash: ${mainHash}`);
+        let mainHash = (await read.getHead("main"));
+        let commit: LoadedCommit;
+        if (mainHash) {
+          const loaded = await loadCommit(read, mainHash);
+          if (!loaded) {
+            throw new Error(`Corrupt database: could not find headHash: ${mainHash}`);
+          }
+          commit = loaded;
+        } else {
+          [commit, mainHash] = await initChain(tx);
         }
 
         // Apply requested action.
@@ -132,12 +138,12 @@ class WriteTransactionImpl implements WriteTransaction {
 
 async function push(commit: LoadedCommit, headHash: string|null, request: Request, sockets: WebSocket[]): Promise<Response> {
   const pushRequest = (await request.json()) as PushRequest; // TODO: validate
-  let lastMutationID = await getLastMutationID(commit, pushRequest.clientID);
+  const client = await getClient(commit, pushRequest.clientID);
 
   const tx = new WriteTransactionImpl(commit.userData);
 
   for (let mutation of pushRequest.mutations) {
-    const expectedMutationID = lastMutationID + 1;
+    const expectedMutationID = client.lastMutationID + 1;
 
     if (mutation.id < expectedMutationID) {
       console.log(`Mutation ${mutation.id} has already been processed - skipping`);
@@ -158,10 +164,10 @@ async function push(commit: LoadedCommit, headHash: string|null, request: Reques
       console.error(`Error execututation mutator: ${JSON.stringify(mutator)}: ${e.message}`);
     }
 
-    lastMutationID = expectedMutationID;
+    client.lastMutationID = expectedMutationID;
   }
 
-  await setLastMutationID(commit, pushRequest.clientID, lastMutationID);
+  await setClient(commit, pushRequest.clientID, client);
 
   if (headHash !== null) {
     await pushHistory(commit, headHash);
@@ -178,7 +184,7 @@ async function push(commit: LoadedCommit, headHash: string|null, request: Reques
 
 async function pull(commit: LoadedCommit, headHash: string|null, read: Read, request: Request): Promise<Response> {
   const pullRequest = (await request.json()) as PullRequest; // TODO: validate
-  const lastMutationID = await getLastMutationID(commit, pullRequest.clientID);
+  const client = await getClient(commit, pullRequest.clientID);
   const requestCookie = pullRequest.cookie;
 
   // Load the historical commit
@@ -218,9 +224,12 @@ async function pull(commit: LoadedCommit, headHash: string|null, read: Read, req
 
   const pullResonse: PullResponse = {
     cookie: headHash,
-    lastMutationID,
+    lastMutationID: client.lastMutationID,
     patch,
   };
+
+  client.lastCookie = headHash;
+  await setClient(commit, pullRequest.clientID, client);
 
   return new Response(JSON.stringify(pullResonse), {
     headers: {
