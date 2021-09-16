@@ -36,6 +36,9 @@ export default function Home() {
         pushURL: workerURL('http', 'replicache-push'),
         pullURL: workerURL('http', 'replicache-pull'),
         useMemstore: true,
+        requestOptions: {
+          experimentalMaxConcurrentRequests: 100,
+        },
         mutators,
       });
 
