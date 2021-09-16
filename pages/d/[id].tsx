@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { Replicache } from "replicache";
+import { PullerResult, ReadonlyJSONObject, ReadonlyJSONValue, Replicache } from "replicache";
 import { createData, mutators } from "../../src/data";
 import { Designer } from "../../src/designer";
 import { Nav } from "../../src/nav";
 
 import type { Data } from "../../src/data";
 import { randUserInfo } from "../../src/client-state";
-import { init } from "../../worker/src/replicache/src/sync/client-id";
 
 export default function Home() {
   const [data, setData] = useState<Data | null>(null);
@@ -34,10 +33,35 @@ export default function Home() {
 
       const rep = new Replicache({
         pushURL: workerURL('http', 'replicache-push'),
-        pullURL: workerURL('http', 'replicache-pull'),
         useMemstore: true,
         requestOptions: {
           experimentalMaxConcurrentRequests: 100,
+        },
+        puller: async (req: Request) => {
+          const reqJSON = await req.json();
+          const nullResponse: PullerResult = {
+            httpRequestInfo: {
+              httpStatusCode: 200,
+              errorMessage: '',
+            },
+            response: {
+              lastMutationID: reqJSON.lastMutationID,
+              patch: [],
+              cookie: reqJSON.cookie,
+            }
+          };
+
+          const res = await fetch(workerURL('http', 'replicache-pull'), {
+            method: 'POST',
+            body: JSON.stringify(reqJSON),
+          });
+          const resJSON = await res.json();
+
+          // then immediately use the apply interface to apply the real response
+          queueMicrotask(() => {
+            rep.experimentalApplyPullResponse(reqJSON.cookie, resJSON);
+          });
+          return nullResponse;
         },
         mutators,
       });
