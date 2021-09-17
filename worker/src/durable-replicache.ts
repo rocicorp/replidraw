@@ -4,12 +4,13 @@ import { Map as ProllyMap } from "./replicache/src/prolly/map";
 import { flushCommit, getClient, initChain, loadCommit, LoadedCommit, pushHistory, readCommit, setClient } from "./commit";
 import { WriteTransaction } from "./replicache/src/transactions";
 import { Read } from "./replicache/src/dag/read";
-import { PullResponse } from "./replicache/src/puller";
+import { PatchOperation, PullResponse } from "./replicache/src/puller";
 import { deepThaw, JSONValue } from "./replicache/src/json";
 import { PushRequest } from "./replicache/src/sync/push";
 import { ScanResult } from "./replicache/src/scan-iterator";
 import { PullRequest } from "./replicache/src/sync/pull";
 import { mutators } from "../../src/data";
+import { Write } from "./replicache/src/dag/write";
 
 declare global {
   interface WebSocket {
@@ -39,13 +40,13 @@ export class DurableReplicache {
   async fetch(request: Request) {
     const t0 = Date.now();
     try {
-      return await this._store.withWrite(async (tx) => {
+      return await this._store.withWrite(async (write) => {
         let url = new URL(request.url);
         if (url.pathname == "/replicache-poke") {
           return await poke(url, request, this._sockets);
         }
 
-        const read = tx.read();
+        const read = write.read();
         let mainHash = (await read.getHead("main"));
         let commit: LoadedCommit;
         if (mainHash) {
@@ -55,7 +56,7 @@ export class DurableReplicache {
           }
           commit = loaded;
         } else {
-          [commit, mainHash] = await initChain(tx);
+          [commit, mainHash] = await initChain(write);
         }
 
         // Apply requested action.
@@ -64,11 +65,11 @@ export class DurableReplicache {
             case "/replicache-pull":
               return await pull(commit, mainHash, read, request);
             case "/replicache-push":
-              return await push(commit, mainHash, request, this._sockets);
+              return await push(commit, mainHash, request, this._sockets, write.read());
           }
           return new Response("ok");
         } finally {
-          await flushCommit(tx, commit);
+          await flushCommit(write, commit);
         }
       });
     } catch (e) {
@@ -148,7 +149,7 @@ async function poke(url: URL, request: Request, sockets: Map<string, WebSocket>)
   return new Response(null, { status: 101, webSocket: client });
 }
 
-async function push(commit: LoadedCommit, headHash: string|null, request: Request, sockets: Map<string, WebSocket>): Promise<Response> {
+async function push(commit: LoadedCommit, headHash: string|null, request: Request, sockets: Map<string, WebSocket>, read: Read): Promise<Response> {
   const pushRequest = (await request.json()) as PushRequest; // TODO: validate
   const client = await getClient(commit, pushRequest.clientID);
 
@@ -185,16 +186,7 @@ async function push(commit: LoadedCommit, headHash: string|null, request: Reques
     await pushHistory(commit, headHash);
   }
 
-  const payload = Date();
-  console.log(`Sending poke to ${sockets.size} clients...`);
-  for (const [clientID, socket] of sockets.entries()) {
-    if (socket.readyState == WebSocket.CLOSED || socket.readyState == WebSocket.CLOSING) {
-      console.log(`Found closed socket for client: ${clientID} - deleting`);
-      sockets.delete(clientID);
-      continue;
-    }
-    socket.send(payload);
-  }
+  await sendSuperpokes(read, headHash, commit, sockets);
 
   return new Response("OK");
 }
@@ -204,40 +196,11 @@ async function pull(commit: LoadedCommit, headHash: string|null, read: Read, req
   const client = await getClient(commit, pullRequest.clientID);
   const requestCookie = pullRequest.cookie;
 
-  // Load the historical commit
-  let prevMap: ProllyMap|null = null;
-  if (requestCookie !== null) {
-    if (typeof requestCookie !== "string") {
-      return new Response("Invalid cookie", {status: 400});
-    }
-    const prevCommit = await readCommit(read, requestCookie);
-    if (prevCommit) {
-      prevMap = await ProllyMap.load(prevCommit.userDataHash, read);
-    } else {
-      console.warn(`Could not find cookie "${requestCookie}" - sending reset patch`)
-    }
+  if (requestCookie !== null && typeof requestCookie !== "string") {
+    return new Response("Invalid cookie", {status: 400});
   }
 
-  const patch = [];
-  if (prevMap === null) {
-    patch.push({op: "clear" as const});
-    patch.push(...[...commit.userData.entries()].map(([key, value]) => ({
-      op: "put" as const,
-      key,
-      value: deepThaw(value),
-    })));
-  } else {
-    for (const [nk, nv] of commit.userData.entries()) {
-      if (!prevMap.has(nk) || prevMap.get(nk) !== nv) {
-        patch.push({op: "put" as const, key: nk, value: deepThaw(nv)});
-      }
-    }
-    for (const [pk] of prevMap.entries()) {
-      if (!commit.userData.has(pk)) {
-        patch.push({op: "del" as const, key: pk});
-      }
-    }
-  }
+  const patch = await computePatch(requestCookie, commit, read);
 
   const pullResonse: PullResponse = {
     cookie: headHash,
@@ -253,6 +216,81 @@ async function pull(commit: LoadedCommit, headHash: string|null, read: Read, req
       "Content-type": "application/javascript",
     },
   });
+}
+
+async function computePatch(sourceCookie: string|null, destCommit: LoadedCommit, read: Read): Promise<PatchOperation[]> {
+  // Load the historical commit
+  let sourceMap: ProllyMap|null = null;
+  if (sourceCookie !== null) {
+    const sourceCommit = await readCommit(read, sourceCookie);
+    if (sourceCommit) {
+      sourceMap = await ProllyMap.load(sourceCommit.userDataHash, read);
+    } else {
+      console.warn(`Could not find cookie "${sourceCookie}" - sending reset patch`)
+    }
+  }
+
+  const patch: PatchOperation[] = [];
+  if (sourceMap === null) {
+    patch.push({op: "clear" as const});
+    patch.push(...[...destCommit.userData.entries()].map(([key, value]) => ({
+      op: "put" as const,
+      key,
+      value: deepThaw(value),
+    })));
+  } else {
+    for (const [nk, nv] of destCommit.userData.entries()) {
+      if (!sourceMap.has(nk) || sourceMap.get(nk) !== nv) {
+        patch.push({op: "put" as const, key: nk, value: deepThaw(nv)});
+      }
+    }
+    for (const [pk] of sourceMap.entries()) {
+      if (!destCommit.userData.has(pk)) {
+        patch.push({op: "del" as const, key: pk});
+      }
+    }
+  }
+
+  return patch;
+}
+
+async function sendSuperpokes(read: Read, destCookie: string | null, destCommit: LoadedCommit, sockets: Map<string, WebSocket>): Promise<void> {
+  console.log(`Sending poke to ${sockets.size} clients...`);
+
+  const patchCache = new Map<string|null, PatchOperation[]>();
+
+  const getPatch = async (sourceCookie: string|null) => {
+    const cached = patchCache.get(sourceCookie);
+    if (cached) {
+      return  cached;
+    }
+
+    const computed = await computePatch(sourceCookie, destCommit, read);
+    patchCache.set(sourceCookie, computed);
+    return computed;
+  };
+
+  for (const [clientID, socket] of sockets.entries()) {
+    if (socket.readyState == WebSocket.CLOSED || socket.readyState == WebSocket.CLOSING) {
+      console.log(`Found closed socket for client: ${clientID} - deleting`);
+      sockets.delete(clientID);
+      continue;
+    }
+
+    const client = await getClient(destCommit, clientID);
+    const patch = await getPatch(client.lastCookie);
+    socket.send(JSON.stringify({
+      baseCookie: client.lastCookie,
+      response: {
+        cookie: destCookie,
+        lastMutationID: client.lastMutationID,
+        patch,
+      },
+    }));
+    client.lastCookie = destCookie;
+    setClient(destCommit, clientID, client);
+  }
+
 }
 
 interface Env {}

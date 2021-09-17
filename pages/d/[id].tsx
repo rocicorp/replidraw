@@ -34,35 +34,10 @@ export default function Home() {
 
       const rep = new Replicache({
         pushURL: workerURL('http', 'replicache-push'),
+        pullURL: workerURL('http', 'replicache-pull'),
         useMemstore: true,
         requestOptions: {
           experimentalMaxConcurrentRequests: 100,
-        },
-        puller: async (req: Request) => {
-          const reqJSON = await req.json();
-          const nullResponse: PullerResult = {
-            httpRequestInfo: {
-              httpStatusCode: 200,
-              errorMessage: '',
-            },
-            response: {
-              lastMutationID: reqJSON.lastMutationID,
-              patch: [],
-              cookie: reqJSON.cookie,
-            }
-          };
-
-          const res = await fetch(workerURL('http', 'replicache-pull'), {
-            method: 'POST',
-            body: JSON.stringify(reqJSON),
-          });
-          const resJSON = await res.json();
-
-          // then immediately use the apply interface to apply the real response
-          queueMicrotask(() => {
-            rep.experimentalApplyPullResponse(reqJSON.cookie, resJSON);
-          });
-          return nullResponse;
         },
         mutators,
       });
@@ -83,9 +58,18 @@ export default function Home() {
           console.log("Connected to WebSocket");
           rep.pull();
         };
-        ws.onmessage = () => {
+        ws.onmessage = async (e) => {
           console.debug('Received poke, pulling');
-          rep.pull();
+          const data = JSON.parse(e.data);
+          try {
+            await rep.experimentalApplyPullResponse(data.baseCookie, data.response);
+          } catch (e) {
+            if (e.toString().indexOf("Overlapping syncs") > -1) {
+              console.error(e);
+              return;
+            }
+            throw e;
+          }
         };
         ws.onerror = (e) => {
           console.error("Error from WebSocket", e);
