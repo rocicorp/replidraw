@@ -28,11 +28,11 @@ declare global {
 
 export class DurableReplicache {
   _store: DAGStore;
-  _sockets: WebSocket[];
+  _sockets: Map<string, WebSocket>;
 
   constructor(state: DurableObjectState, env: Env) {
     this._store = new DAGStore(new KVStore(state));
-    this._sockets = [];
+    this._sockets = new Map();
   }
 
   // Handle HTTP requests from clients.
@@ -42,22 +42,7 @@ export class DurableReplicache {
       return await this._store.withWrite(async (tx) => {
         let url = new URL(request.url);
         if (url.pathname == "/replicache-poke") {
-          if (request.headers.get("Upgrade") != "websocket") {
-            return new Response("expected websocket", {status: 400});
-          }
-          console.log("Initializing WebSocket...");
-          const pair = new WebSocketPair();
-          const {0: server, 1: client} = pair;
-          server.accept();
-          server.onopen = () => {
-            console.log("WebSocket is open")
-          };
-          server.onclose = () => {
-            console.log("WebSocket has closed :-(")
-            this._sockets = this._sockets.filter((s) => s != server);
-          };
-          this._sockets.push(server);
-          return new Response(null, { status: 101, webSocket: client });
+          return await poke(url, request, this._sockets);
         }
 
         const read = tx.read();
@@ -136,7 +121,34 @@ class WriteTransactionImpl implements WriteTransaction {
   }
 }
 
-async function push(commit: LoadedCommit, headHash: string|null, request: Request, sockets: WebSocket[]): Promise<Response> {
+async function poke(url: URL, request: Request, sockets: Map<string, WebSocket>): Promise<Response>{
+  if (request.headers.get("Upgrade") != "websocket") {
+    return new Response("expected websocket", {status: 400});
+  }
+  const clientID = url.searchParams.get("clientID");
+  if (!clientID) {
+    return new Response("missing clientID parameter", {status: 400});
+  }
+  console.log(`Initializing WebSocket for client: ${clientID}...`);
+  const pair = new WebSocketPair();
+  const {0: server, 1: client} = pair;
+  server.accept();
+  server.onopen = () => {
+    console.log("WebSocket is open");
+  };
+  server.onclose = () => {
+    console.log("WebSocket has closed :-(");
+    sockets.delete(clientID);
+  };
+  const existing = sockets.get(clientID);
+  if (existing) {
+    existing.close();
+  }
+  sockets.set(clientID, server);
+  return new Response(null, { status: 101, webSocket: client });
+}
+
+async function push(commit: LoadedCommit, headHash: string|null, request: Request, sockets: Map<string, WebSocket>): Promise<Response> {
   const pushRequest = (await request.json()) as PushRequest; // TODO: validate
   const client = await getClient(commit, pushRequest.clientID);
 
@@ -174,8 +186,13 @@ async function push(commit: LoadedCommit, headHash: string|null, request: Reques
   }
 
   const payload = Date();
-  console.log(`Sending poke to ${sockets.length} clients...`);
-  for (const socket of sockets) {
+  console.log(`Sending poke to ${sockets.size} clients...`);
+  for (const [clientID, socket] of sockets.entries()) {
+    if (socket.readyState == WebSocket.CLOSED || socket.readyState == WebSocket.CLOSING) {
+      console.log(`Found closed socket for client: ${clientID} - deleting`);
+      sockets.delete(clientID);
+      continue;
+    }
     socket.send(payload);
   }
 

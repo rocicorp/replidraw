@@ -27,8 +27,9 @@ export default function Home() {
         : `127.0.0.1:8787`;
       const workerSecureSuffix = isProd ? "s" : "";
 
-      const workerURL = (protocol: string, path: string) => {
-        return `${protocol}${workerSecureSuffix}://${workerHost}/${path}?room=${room}`;
+      const workerURL = (protocol: string, path: string, qs = new URLSearchParams()) => {
+        qs.set("room", room);
+        return `${protocol}${workerSecureSuffix}://${workerHost}/${path}?${qs.toString()}`;
       }
 
       const rep = new Replicache({
@@ -71,12 +72,13 @@ export default function Home() {
 
       let ws: WebSocket;
 
-      const initSocket = () => {
+      const initSocket = async () => {
         if (ws !== undefined && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
           return;
         }
         console.debug("Connecting WebSocket...");
-        ws = new WebSocket(workerURL('ws', 'replicache-poke'));
+        const clientID = await rep.clientID;
+        ws = new WebSocket(workerURL('ws', `replicache-poke`, new URLSearchParams([["clientID", clientID]])));
         ws.onopen = () => {
           console.log("Connected to WebSocket");
           rep.pull();
