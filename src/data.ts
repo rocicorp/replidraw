@@ -9,7 +9,9 @@ import {
   resizeShape,
   rotateShape,
   deleteShape,
+  initShapes,
   keyPrefix as shapePrefix,
+  randomShape,
 } from "./shape";
 import {
   getClientState,
@@ -37,10 +39,17 @@ export async function createData(
     return useSubscribe(rep, f, def);
   }
 
-  await rep.mutate.initClientState({
+  rep.mutate.initClientState({
     id: clientID,
     defaultUserInfo,
   });
+  rep.onSync = (syncing: boolean) => {
+    if (!syncing) {
+      rep.onSync = null;
+      rep.mutate.initShapes(new Array(5).fill(null).map(() => randomShape()));
+    }
+  }
+  await rep.pull();
 
   return {
     clientID,
@@ -155,4 +164,8 @@ export const mutators = {
       )
     );
   },
+
+  async initShapes(tx: WriteTransaction, shapes: { id: string; shape: Shape }[]) {
+    await initShapes(tx, shapes);
+  }
 };
