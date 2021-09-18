@@ -12,23 +12,37 @@ import { PullRequest } from "./replicache/src/sync/pull";
 import { mutators } from "../../src/data";
 
 declare global {
-  interface WebSocket {
-    accept(): void;
+  interface CloudflareWebsocket {
+    accept(): unknown;
+    addEventListener(event: 'close', callbackFunction: (code?: number, reason?: string) => unknown): unknown;
+    addEventListener(event: 'error', callbackFunction: (e: unknown) => unknown): unknown;
+    addEventListener(event: 'message', callbackFunction: (event: { data: any }) => unknown): unknown;
+
+    /**
+     * @param code https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent
+     * @param reason
+     */
+    close(code?: number, reason?: string): unknown;
+    send(message: string|Uint8Array): unknown;
+
+    // Cloudflare's workers don't support readyState, but minflare does, and we need
+    // this in order to detect closed mf sockets.
+    readyState: number|undefined;
   }
 
   class WebSocketPair {
-    0: WebSocket;
-    1: WebSocket;
+    0: CloudflareWebsocket; // Client
+    1: CloudflareWebsocket; // Server
   }
 
   interface ResponseInit {
-    webSocket?: WebSocket;
+    webSocket?: CloudflareWebsocket;
   }
 }
 
 export class DurableReplicache {
   _store: DAGStore;
-  _sockets: Map<string, WebSocket>;
+  _sockets: Map<string, CloudflareWebsocket>;
 
   constructor(state: DurableObjectState, env: Env) {
     this._store = new DAGStore(new KVStore(state));
@@ -133,7 +147,7 @@ class WriteTransactionImpl implements WriteTransaction {
   }
 }
 
-function poke(url: URL, request: Request, sockets: Map<string, WebSocket>): Response{
+function poke(url: URL, request: Request, sockets: Map<string, CloudflareWebsocket>): Response{
   if (request.headers.get("Upgrade") != "websocket") {
     return new Response("expected websocket", {status: 400});
   }
@@ -144,17 +158,14 @@ function poke(url: URL, request: Request, sockets: Map<string, WebSocket>): Resp
   console.log(`Initializing WebSocket for client: ${clientID}...`);
   const pair = new WebSocketPair();
   const {0: server, 1: client} = pair;
-  server.onerror = e => {
+  server.addEventListener('error', e => {
     console.log("WebSocket server got error", e);
     sockets.delete(clientID);
-  };
-  server.onopen = () => {
-    console.log("WebSocket is open");
-  };
-  server.onclose = () => {
+  });
+  server.addEventListener('close', () => {
     console.log("WebSocket has closed :-(");
     sockets.delete(clientID);
-  };
+  });
   const existing = sockets.get(clientID);
   if (existing) {
     console.log(`Found existing server socket for client: ${clientID} - closing`);
@@ -166,7 +177,7 @@ function poke(url: URL, request: Request, sockets: Map<string, WebSocket>): Resp
   return new Response(null, { status: 101, webSocket: client });
 }
 
-async function push(commit: LoadedCommit, headHash: string|null, request: Request, sockets: Map<string, WebSocket>, read: Read): Promise<Response> {
+async function push(commit: LoadedCommit, headHash: string|null, request: Request, sockets: Map<string, CloudflareWebsocket>, read: Read): Promise<Response> {
   const pushRequest = (await request.json()) as PushRequest; // TODO: validate
   const client = await getClient(commit, pushRequest.clientID);
 
@@ -271,7 +282,7 @@ async function computePatch(sourceCookie: string|null, destCommit: LoadedCommit,
   return patch;
 }
 
-async function sendSuperpokes(read: Read, destCookie: string | null, destCommit: LoadedCommit, sockets: Map<string, WebSocket>): Promise<void> {
+async function sendSuperpokes(read: Read, destCookie: string | null, destCommit: LoadedCommit, sockets: Map<string, CloudflareWebsocket>): Promise<void> {
   console.log(`Sending poke to ${sockets.size} clients...`);
 
   const patchCache = new Map<string|null, PatchOperation[]>();
