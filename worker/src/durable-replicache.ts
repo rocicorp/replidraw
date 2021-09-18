@@ -147,6 +147,7 @@ function poke(url: URL, request: Request, sockets: Map<string, WebSocket>): Resp
   const {0: server, 1: client} = pair;
   server.onerror = e => {
     console.log("WebSocket server got error", e);
+    sockets.delete(clientID);
   };
   server.onopen = () => {
     console.log("WebSocket is open");
