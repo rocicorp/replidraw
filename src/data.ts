@@ -9,7 +9,7 @@ import {
   resizeShape,
   rotateShape,
   deleteShape,
-  prefix as shapePrefix,
+  keyPrefix as shapePrefix,
 } from "./shape";
 import {
   getClientState,

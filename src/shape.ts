@@ -93,10 +93,10 @@ export async function initShapes(
 }
 
 function key(id: string): string {
-  return `${prefix}-${id}`;
+  return `${keyPrefix}${id}`;
 }
 
-export const prefix = "shape-";
+export const keyPrefix = "shape-";
 
 const colors = ["red", "blue", "white", "green", "yellow"];
 let nextColor = 0;
