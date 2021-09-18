@@ -43,7 +43,7 @@ export class DurableReplicache {
       return await this._store.withWrite(async (write) => {
         let url = new URL(request.url);
         if (url.pathname == "/replicache-poke") {
-          return await poke(url, request, this._sockets);
+          return poke(url, request, this._sockets);
         }
 
         const read = write.read();
@@ -73,7 +73,19 @@ export class DurableReplicache {
         }
       });
     } catch (e) {
-      return new Response(e.toString(), { status: 500 });
+      console.error("caught error", e.stack);
+      if (request.headers.get("Upgrade") == "websocket") {
+        // Annoyingly, if we return an HTTP error in response to a WebSocket request, Chrome devtools
+        // won't show us the response body! So... let's send a WebSocket response with an error
+        // frame instead.
+        let pair = new WebSocketPair();
+        pair[1].accept();
+        pair[1].send(JSON.stringify({error: e.toString()}));
+        pair[1].close(1011, "Uncaught exception during session setup");
+        return new Response(null, { status: 101, webSocket: pair[0] });
+      } else {
+        return new Response(e.toString(), {status: 500});
+      }
     } finally {
       console.log(`Processed ${request.url} in ${Date.now() - t0}ms`);
     }
@@ -122,7 +134,7 @@ class WriteTransactionImpl implements WriteTransaction {
   }
 }
 
-async function poke(url: URL, request: Request, sockets: Map<string, WebSocket>): Promise<Response>{
+function poke(url: URL, request: Request, sockets: Map<string, WebSocket>): Response{
   if (request.headers.get("Upgrade") != "websocket") {
     return new Response("expected websocket", {status: 400});
   }
@@ -133,7 +145,9 @@ async function poke(url: URL, request: Request, sockets: Map<string, WebSocket>)
   console.log(`Initializing WebSocket for client: ${clientID}...`);
   const pair = new WebSocketPair();
   const {0: server, 1: client} = pair;
-  server.accept();
+  server.onerror = e => {
+    console.log("WebSocket server got error", e);
+  };
   server.onopen = () => {
     console.log("WebSocket is open");
   };
@@ -143,9 +157,12 @@ async function poke(url: URL, request: Request, sockets: Map<string, WebSocket>)
   };
   const existing = sockets.get(clientID);
   if (existing) {
+    console.log(`Found existing server socket for client: ${clientID} - closing`);
     existing.close();
   }
   sockets.set(clientID, server);
+  server.accept();
+  console.log('Returning socket client');
   return new Response(null, { status: 101, webSocket: client });
 }
 
@@ -271,10 +288,14 @@ async function sendSuperpokes(read: Read, destCookie: string | null, destCommit:
   };
 
   for (const [clientID, socket] of sockets.entries()) {
-    if (socket.readyState == WebSocket.CLOSED || socket.readyState == WebSocket.CLOSING) {
-      console.log(`Found closed socket for client: ${clientID} - deleting`);
-      sockets.delete(clientID);
-      continue;
+    // CF doesn't support `readyState`, but miniflare does and needs this to avoid sending to
+    // a closed connection.
+    if (typeof socket.readyState !== "undefined") {
+      if (socket.readyState == WebSocket.CLOSED || socket.readyState == WebSocket.CLOSING) {
+        console.log(`Found closed socket for client: ${clientID} - deleting`);
+        sockets.delete(clientID);
+        continue;
+      }
     }
 
     const client = await getClient(destCommit, clientID);
