@@ -9,8 +9,7 @@ import {
   resizeShape,
   rotateShape,
   deleteShape,
-  randomShape,
-  initShapes,
+  prefix as shapePrefix,
 } from "./shape";
 import {
   getClientState,
@@ -151,7 +150,7 @@ export const mutators = {
 
   async deleteAllShapes(tx: WriteTransaction) {
     await Promise.all(
-      (await tx.scan({ prefix: `shape-` }).keys().toArray()).map((k) =>
+      (await tx.scan({ prefix: shapePrefix }).keys().toArray()).map((k) =>
         tx.del(k)
       )
     );
