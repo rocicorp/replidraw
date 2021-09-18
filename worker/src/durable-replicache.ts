@@ -10,7 +10,6 @@ import { PushRequest } from "./replicache/src/sync/push";
 import { ScanResult } from "./replicache/src/scan-iterator";
 import { PullRequest } from "./replicache/src/sync/pull";
 import { mutators } from "../../src/data";
-import { Write } from "./replicache/src/dag/write";
 
 declare global {
   interface WebSocket {
