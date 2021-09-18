@@ -59,13 +59,13 @@ export default function Home() {
           rep.pull();
         };
         ws.onmessage = async (e) => {
-          console.debug('Received poke, pulling');
           const data = JSON.parse(e.data);
           try {
             await rep.experimentalApplyPullResponse(data.baseCookie, data.response);
           } catch (e) {
             if (e.toString().indexOf("Overlapping syncs") > -1) {
-              console.error(e);
+              console.warn("Got overlapping syncs error - pulling manually");
+              rep.pull();
               return;
             }
             throw e;
