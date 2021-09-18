@@ -4,6 +4,7 @@ export { DurableReplicache } from './durable-replicache';
 
 export default {
   async fetch(request: Request, env: Env) {
+    console.log(`Handling ${request.method} for ${request.url}`);
     const url = new URL(request.url);
     const room = url.searchParams.get('room')
     if (room === null) {
@@ -13,9 +14,10 @@ export default {
       if (request.method == 'OPTIONS') {
         return new Response(null, {
           headers: {
-              'Access-Control-Allow-Origin':  '*',
+              'Access-Control-Allow-Origin': '*',
               'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
               'Access-Control-Allow-Headers': '*',
+              'Access-Control-Max-Age': '86400',
           },
         })
       }
@@ -32,6 +34,9 @@ async function handleRequest(request: Request, env: Env, room: string) {
   const response = await obj.fetch(request)
   const corsResponse = new Response(response.body, response)
   corsResponse.headers.set('Access-Control-Allow-Origin', '*')
+  corsResponse.headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
+  corsResponse.headers.set('Access-Control-Allow-Headers', '*')
+  corsResponse.headers.set('Access-Control-Max-Age', '86400')
   return corsResponse
 }
 
