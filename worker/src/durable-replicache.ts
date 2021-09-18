@@ -191,7 +191,7 @@ async function push(commit: LoadedCommit, headHash: string|null, request: Reques
     try {
       await mutator(tx, mutation.args);
     } catch (e) {
-      console.error(`Error execututation mutator: ${JSON.stringify(mutator)}: ${e.message}`);
+      console.error(`Error executing mutator: ${JSON.stringify(mutator)}: ${e.message}`);
     }
 
     client.lastMutationID = expectedMutationID;
