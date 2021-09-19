@@ -5,7 +5,7 @@ import { flushCommit, getClient, initChain, loadCommit, LoadedCommit, pushHistor
 import { WriteTransaction } from "./replicache/src/transactions";
 import { Read } from "./replicache/src/dag/read";
 import { PatchOperation, PullResponse } from "./replicache/src/puller";
-import { deepThaw, JSONValue } from "./replicache/src/json";
+import { deepEqual, deepThaw, JSONValue } from "./replicache/src/json";
 import { PushRequest } from "./replicache/src/sync/push";
 import { ScanResult } from "./replicache/src/scan-iterator";
 import { PullRequest } from "./replicache/src/sync/pull";
@@ -268,7 +268,7 @@ async function computePatch(sourceCookie: string|null, destCommit: LoadedCommit,
     })));
   } else {
     for (const [nk, nv] of destCommit.userData.entries()) {
-      if (!sourceMap.has(nk) || sourceMap.get(nk) !== nv) {
+      if (!sourceMap.has(nk) || !deepEqual(sourceMap.get(nk), nv)) {
         patch.push({op: "put" as const, key: nk, value: deepThaw(nv)});
       }
     }
