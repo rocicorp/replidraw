@@ -5,12 +5,15 @@ import { randomShape } from "./shape";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
+import {Shape, keyPrefix as shapePrefix} from "./shape";
 
 export function Nav({ data }: { data: Data }) {
   const [aboutVisible, showAbout] = useState(false);
   const [shareVisible, showShare] = useState(false);
+  const [simulating, setSimulating] = useState(false);
   const urlBox = useRef<HTMLInputElement>(null);
   const userInfo = data.useUserInfo(data.clientID);
+  const timerID = useRef<number>();
 
   useEffect(() => {
     if (shareVisible) {
@@ -24,6 +27,28 @@ export function Nav({ data }: { data: Data }) {
     }
     data.createShape(randomShape());
   };
+
+  useEffect(() => {
+    if (simulating) {
+      const frame = async () => {
+        const shapes = await data.rep.query(async tx => {
+          return (await tx.scan({prefix: shapePrefix}).entries().toArray()) as [string, Shape][];
+        });
+        for (const [id, shape] of shapes) {
+          const shortID = id.substr(shapePrefix.length);
+          if (shape.x >= (window.innerWidth - shape.width)) {
+            data.moveShape({id: shortID, dx: -shape.x, dy: 0});
+          } else {
+            data.moveShape({id: shortID, dx: 4, dy: 0});
+          }
+        }
+        timerID.current = window.setTimeout(frame, 1000 / 30);
+      };
+      frame();
+    } else {
+      clearTimeout(timerID.current!);
+    }
+  }, [simulating]);
 
   return (
     <>
@@ -75,6 +100,12 @@ export function Nav({ data }: { data: Data }) {
           onClick={() => showAbout(true)}
         >
           About this Demo
+        </div>
+        <div
+          className={`${styles.button} ${styles.about}`}
+          onClick={() => setSimulating(!simulating)}
+        >
+          {simulating ? "Stop" : "Start"} Simulation
         </div>
         <div className={styles.spacer}></div>
         {userInfo && (
