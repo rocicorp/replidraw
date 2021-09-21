@@ -5,7 +5,7 @@ import { randomShape } from "./shape";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
-import {Shape, keyPrefix as shapePrefix} from "./shape";
+import { Shape, keyPrefix as shapePrefix } from "./shape";
 
 export function Nav({ data }: { data: Data }) {
   const [aboutVisible, showAbout] = useState(false);
@@ -31,18 +31,21 @@ export function Nav({ data }: { data: Data }) {
   useEffect(() => {
     if (simulating) {
       const frame = async () => {
-        const shapes = await data.rep.query(async tx => {
-          return (await tx.scan({prefix: shapePrefix}).entries().toArray()) as [string, Shape][];
+        const shapes = await data.rep.query(async (tx) => {
+          return (await tx
+            .scan({ prefix: shapePrefix })
+            .entries()
+            .toArray()) as [string, Shape][];
         });
         for (const [id, shape] of shapes) {
           const shortID = id.substr(shapePrefix.length);
-          if (shape.x >= (window.innerWidth - shape.width)) {
-            data.moveShape({id: shortID, dx: -shape.x, dy: 0});
+          if (shape.x >= window.innerWidth - shape.width) {
+            data.moveShape({ id: shortID, dx: -shape.x, dy: 0 });
           } else {
-            data.moveShape({id: shortID, dx: 4, dy: 0});
+            data.moveShape({ id: shortID, dx: 4, dy: 0 });
           }
         }
-        timerID.current = window.setTimeout(frame, 1000 / 30);
+        timerID.current = window.setTimeout(frame, 1000 / 60);
       };
       frame();
     } else {
