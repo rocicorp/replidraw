@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import { WriteTransaction } from "replicache";
 import {
   initClientState,
@@ -6,6 +7,7 @@ import {
   selectShape,
   UserInfo,
 } from "./client-state";
+import { draw, putDraw } from "./draw";
 import {
   Shape,
   putShape,
@@ -90,5 +92,15 @@ export const mutators = {
     shapes: { id: string; shape: Shape }[]
   ) {
     await initShapes(tx, shapes);
+  },
+
+  async draw(
+    tx: WriteTransaction,
+    { id, x, y }: { id: string; x: number; y: number }
+  ) {
+    await putDraw(tx, {
+      id,
+      draw: { radius: 10, cx: x, cy: y, color: "black" },
+    });
   },
 };

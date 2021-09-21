@@ -16,6 +16,10 @@ export function RectController({ rep, id }: { rep: Rep; id: string }) {
   const onDragStart = (e: DraggableEvent, d: DraggableData) => {
     rep.mutate.selectShape({ clientID: rep.cid, shapeID: id });
   };
+  const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+  };
+
   const onDrag = (e: DraggableEvent, d: DraggableData) => {
     // This is subtle, and worth drawing attention to:
     // In order to properly resolve conflicts, what we want to capture in
@@ -40,7 +44,7 @@ export function RectController({ rep, id }: { rep: Rep; id: string }) {
 
   return (
     <DraggableCore onStart={onDragStart} onDrag={onDrag}>
-      <div onWheel={onMouseWheel}>
+      <div onWheel={onMouseWheel} onClick={onClick}>
         <Rect
           {...{
             rep,

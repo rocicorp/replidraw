@@ -2,6 +2,7 @@ import { Rep } from "./rep";
 import { useSubscribe } from "replicache-react";
 import { getClientState, clientStatePrefix } from "./client-state";
 import { getShape, shapePrefix } from "./shape";
+import { drawPrefix, getDraw } from "./draw";
 
 export function useShapeIDs(rep: Rep) {
   return useSubscribe(
@@ -77,5 +78,26 @@ export function useClientInfo(rep: Rep, clientID: string) {
       return await getClientState(tx, clientID);
     },
     null
+  );
+}
+
+export function useDrawByID(rep: Rep, drawID: string) {
+  return useSubscribe(
+    rep,
+    async (tx) => {
+      return await getDraw(tx, drawID);
+    },
+    null
+  );
+}
+
+export function useDrawIDs(rep: Rep) {
+  return useSubscribe(
+    rep,
+    async (tx) => {
+      const drawIDs = await tx.scan({ prefix: drawPrefix }).keys().toArray();
+      return drawIDs.map((k) => k.substr(drawPrefix.length));
+    },
+    []
   );
 }

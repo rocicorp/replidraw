@@ -11,14 +11,18 @@ import {
   useOverShapeID,
   useSelectedShapeID,
   useCollaboratorIDs,
+  useDrawIDs,
 } from "./subscriptions";
 import { Rep } from "./rep";
+import { Dot } from "./dot";
+import { nanoid } from "nanoid";
 
 export function Designer({ rep }: { rep: Rep }) {
   const ids = useShapeIDs(rep);
   const overID = useOverShapeID(rep);
   const selectedID = useSelectedShapeID(rep);
   const collaboratorIDs = useCollaboratorIDs(rep);
+  const drawIDs = useDrawIDs(rep);
 
   const ref = useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -35,6 +39,10 @@ export function Designer({ rep }: { rep: Rep }) {
     },
   };
 
+  const onClick = () => {
+    rep.mutate.selectShape({ clientID: rep.cid, shapeID: "" });
+  };
+
   const onMouseMove = async ({
     pageX,
     pageY,
@@ -48,6 +56,13 @@ export function Designer({ rep }: { rep: Rep }) {
         x: pageX,
         y: pageY - ref.current.offsetTop,
       });
+      if (dragging && selectedID === "") {
+        rep.mutate.draw({
+          id: nanoid(),
+          x: pageX,
+          y: pageY - ref.current.offsetTop,
+        });
+      }
     }
   };
 
@@ -72,6 +87,7 @@ export function Designer({ rep }: { rep: Rep }) {
               flex: 1,
               overflow: "hidden",
             },
+            onClick,
             onMouseMove,
             onTouchMove: (e) => touchToMouse(e, onMouseMove),
           }}
@@ -129,6 +145,13 @@ export function Designer({ rep }: { rep: Rep }) {
                   clientID: id,
                 }}
               />
+            ))
+          }
+
+          {
+            // dots
+            drawIDs.map((id) => (
+              <Dot id={id} rep={rep} key={`dot-${id}`} />
             ))
           }
         </div>
