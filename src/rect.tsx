@@ -39,6 +39,7 @@ export function Rect({
           top: -1,
           transform: `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`,
           pointerEvents: enableEvents ? "all" : "none",
+          opacity: shape.opacity,
         },
         width: w + 2,
         height: h + 2,

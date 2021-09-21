@@ -15,6 +15,7 @@ import {
   rotateShape,
   initShapes,
   shapePrefix as shapePrefix,
+  adjustOpacity,
 } from "./shape";
 
 export const mutators = {
@@ -39,6 +40,13 @@ export const mutators = {
 
   async rotateShape(tx: WriteTransaction, args: { id: string; ddeg: number }) {
     await rotateShape(tx, args);
+  },
+
+  async adjustOpacity(
+    tx: WriteTransaction,
+    args: { id: string; delta: number }
+  ) {
+    await adjustOpacity(tx, args);
   },
 
   async initClientState(

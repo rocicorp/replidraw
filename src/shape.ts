@@ -12,6 +12,7 @@ export const shape = t.type({
   height: t.number,
   rotate: t.number,
   fill: t.string,
+  opacity: t.number,
 });
 
 export type Shape = t.TypeOf<typeof shape>;
@@ -95,6 +96,18 @@ export async function initShapes(
   ]);
 }
 
+export async function adjustOpacity(
+  tx: WriteTransaction,
+  { id, delta }: { id: string; delta: number }
+): Promise<void> {
+  const shape = await getShape(tx, id);
+  if (shape) {
+    shape.opacity += delta;
+    shape.opacity = Math.min(1, Math.max(0, shape.opacity));
+    await putShape(tx, { id, shape });
+  }
+}
+
 function key(id: string): string {
   return `${shapePrefix}${id}`;
 }
@@ -120,6 +133,7 @@ export function randomShape() {
       height: s,
       rotate: randInt(0, 359),
       fill,
+      opacity: 1,
     } as Shape,
   };
 }

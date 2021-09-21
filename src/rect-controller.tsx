@@ -30,6 +30,9 @@ export function RectController({ rep, id }: { rep: Rep; id: string }) {
       dy: d.deltaY,
     });
   };
+  const onMouseWheel = (e: React.WheelEvent) => {
+    rep.mutate.adjustOpacity({ id, delta: e.deltaY * 0.01 });
+  };
 
   if (!shape) {
     return null;
@@ -37,7 +40,7 @@ export function RectController({ rep, id }: { rep: Rep; id: string }) {
 
   return (
     <DraggableCore onStart={onDragStart} onDrag={onDrag}>
-      <div>
+      <div onWheel={onMouseWheel}>
         <Rect
           {...{
             rep,
