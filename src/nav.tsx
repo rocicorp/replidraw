@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "./nav.module.css";
-import { Data } from "./data";
 import { randomShape } from "./shape";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
-import { Shape, keyPrefix as shapePrefix } from "./shape";
+import { Shape, shapePrefix as shapePrefix } from "./shape";
+import { useUserInfo } from "./subscriptions";
+import { Rep } from "./rep";
 
-export function Nav({ data }: { data: Data }) {
+export function Nav({ rep }: { rep: Rep }) {
   const [aboutVisible, showAbout] = useState(false);
   const [shareVisible, showShare] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const urlBox = useRef<HTMLInputElement>(null);
-  const userInfo = data.useUserInfo(data.clientID);
+  const userInfo = useUserInfo(rep);
   const timerID = useRef<number>();
 
   useEffect(() => {
@@ -22,16 +23,13 @@ export function Nav({ data }: { data: Data }) {
   });
 
   const onRectangle = () => {
-    if (!data) {
-      return;
-    }
-    data.createShape(randomShape());
+    rep.mutate.createShape(randomShape());
   };
 
   useEffect(() => {
     if (simulating) {
       const frame = async () => {
-        const shapes = await data.rep.query(async (tx) => {
+        const shapes = await rep.query(async (tx) => {
           return (await tx
             .scan({ prefix: shapePrefix })
             .entries()
@@ -40,9 +38,9 @@ export function Nav({ data }: { data: Data }) {
         for (const [id, shape] of shapes) {
           const shortID = id.substr(shapePrefix.length);
           if (shape.x >= window.innerWidth - shape.width) {
-            data.moveShape({ id: shortID, dx: -shape.x, dy: 0 });
+            rep.mutate.moveShape({ id: shortID, dx: -shape.x, dy: 0 });
           } else {
-            data.moveShape({ id: shortID, dx: 4, dy: 0 });
+            rep.mutate.moveShape({ id: shortID, dx: 4, dy: 0 });
           }
         }
         timerID.current = window.setTimeout(frame, 1000 / 60);
@@ -77,7 +75,7 @@ export function Nav({ data }: { data: Data }) {
         <div
           className={styles.button}
           title="Clear All"
-          onClick={() => data?.deleteAllShapes()}
+          onClick={() => rep.mutate.deleteAllShapes()}
         >
           <svg
             width="18"

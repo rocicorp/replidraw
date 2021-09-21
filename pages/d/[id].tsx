@@ -1,71 +1,90 @@
 import { useEffect, useState } from "react";
-import { PullerResult, ReadonlyJSONObject, ReadonlyJSONValue, Replicache } from "replicache";
-import { createData, mutators } from "../../src/data";
 import { Designer } from "../../src/designer";
 import { Nav } from "../../src/nav";
 
-import type { Data } from "../../src/data";
 import { randUserInfo } from "../../src/client-state";
+import { randomShape } from "../../src/shape";
+import { Rep } from "../../src/rep";
 
 export default function Home() {
-  const [data, setData] = useState<Data | null>(null);
+  const [rep, setRep] = useState<Rep | null>(null);
 
   // TODO: Think through Replicache + SSR.
   useEffect(() => {
     (async () => {
-      if (data) {
+      if (rep) {
         return;
       }
 
       const url = new URL(location.href);
       const [, , room] = url.pathname.split("/");
       const wantsProd = url.searchParams.get("prod-worker");
-      const isProd = (wantsProd !== null && (wantsProd === "1" || wantsProd.toLowerCase() === "true")) ||
+      const isProd =
+        (wantsProd !== null &&
+          (wantsProd === "1" || wantsProd.toLowerCase() === "true")) ||
         url.host.indexOf(".vercel.app") > -1;
       const workerHost = isProd
         ? `replicache-worker.replicache.workers.dev`
         : `127.0.0.1:8787`;
       const workerSecureSuffix = isProd ? "s" : "";
 
-      const workerURL = (protocol: string, path: string, qs = new URLSearchParams()) => {
+      const workerURL = (
+        protocol: string,
+        path: string,
+        qs = new URLSearchParams()
+      ) => {
         qs.set("room", room);
         return `${protocol}${workerSecureSuffix}://${workerHost}/${path}?${qs.toString()}`;
-      }
+      };
 
-      const rep = new Replicache({
-        pushURL: workerURL('http', 'replicache-push'),
-        pullURL: workerURL('http', 'replicache-pull'),
-        useMemstore: true,
-        requestOptions: {
-          experimentalMaxConcurrentRequests: 100,
-        },
-        mutators,
+      const r = await Rep.new({
+        pushURL: workerURL("http", "replicache-push"),
+        pullURL: workerURL("http", "replicache-pull"),
       });
 
       const defaultUserInfo = randUserInfo();
-      const d = await createData(rep, defaultUserInfo);
+      r.mutate.initClientState({ id: await r.clientID, defaultUserInfo });
+      r.onSync = (syncing: boolean) => {
+        if (!syncing) {
+          r.onSync = null;
+          r.mutate.initShapes(new Array(5).fill(null).map(() => randomShape()));
+        }
+      };
+      await r.pull();
 
       let ws: WebSocket;
 
       const initSocket = async () => {
-        if (ws !== undefined && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        if (
+          ws !== undefined &&
+          (ws.readyState === WebSocket.OPEN ||
+            ws.readyState === WebSocket.CONNECTING)
+        ) {
           return;
         }
         console.debug("Connecting WebSocket...");
-        const clientID = await rep.clientID;
-        ws = new WebSocket(workerURL('ws', `replicache-poke`, new URLSearchParams([["clientID", clientID]])));
+        ws = new WebSocket(
+          workerURL(
+            "ws",
+            `replicache-poke`,
+            new URLSearchParams([["clientID", r.cid]])
+          )
+        );
         ws.onopen = () => {
           console.log("Connected to WebSocket");
-          rep.pull();
+          r.pull();
         };
         ws.onmessage = async (e) => {
           const data = JSON.parse(e.data);
           try {
-            await rep.experimentalApplyPullResponse(data.baseCookie, data.response);
+            await r.experimentalApplyPullResponse(
+              data.baseCookie,
+              data.response
+            );
           } catch (e) {
             if (e.toString().indexOf("Overlapping syncs") > -1) {
               console.warn("Got overlapping syncs error - pulling manually");
-              rep.pull();
+              r.pull();
               return;
             }
             throw e;
@@ -75,7 +94,9 @@ export default function Home() {
           console.error("Error from WebSocket", e);
         };
         ws.onclose = () => {
-          console.log("Disconnected from WebSocket. Will reconnect on next interaction");
+          console.log(
+            "Disconnected from WebSocket. Will reconnect on next interaction"
+          );
         };
       };
       initSocket();
@@ -87,11 +108,11 @@ export default function Home() {
       window.onmousemove = initSocket;
       window.ontouchstart = initSocket;
 
-      setData(d);
+      setRep(r);
     })();
   }, []);
 
-  if (!data) {
+  if (!rep) {
     return null;
   }
 
@@ -108,8 +129,8 @@ export default function Home() {
         background: "rgb(229,229,229)",
       }}
     >
-      <Nav data={data} />
-      <Designer {...{ data }} />
+      <Nav rep={rep} />
+      <Designer {...{ rep }} />
     </div>
   );
 }

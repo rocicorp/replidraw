@@ -18,7 +18,7 @@ import { deepEqual, deepThaw, JSONValue } from './replicache/src/json';
 import { PushRequest } from './replicache/src/sync/push';
 import { ScanResult } from './replicache/src/scan-iterator';
 import { PullRequest } from './replicache/src/sync/pull';
-import { mutators } from '../../src/data';
+import { mutators } from '../../src/mutators';
 
 declare global {
   interface Websocket {

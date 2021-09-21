@@ -1,19 +1,20 @@
-import { Data } from "./data";
 import { Rect } from "./rect";
 import { DraggableCore, DraggableEvent, DraggableData } from "react-draggable";
+import { Rep } from "./rep";
+import { useShapeByID } from "./subscriptions";
 
 // TODO: In the future I imagine this becoming ShapeController and
 // there also be a Shape that wraps Rect and also knows how to draw Circle, etc.
-export function RectController({ data, id }: { data: Data; id: string }) {
-  const shape = data.useShapeByID(id);
+export function RectController({ rep, id }: { rep: Rep; id: string }) {
+  const shape = useShapeByID(rep, id);
 
   const onMouseEnter = () =>
-    data.overShape({ clientID: data.clientID, shapeID: id });
+    rep.mutate.overShape({ clientID: rep.cid, shapeID: id });
   const onMouseLeave = () =>
-    data.overShape({ clientID: data.clientID, shapeID: "" });
+    rep.mutate.overShape({ clientID: rep.cid, shapeID: "" });
 
   const onDragStart = (e: DraggableEvent, d: DraggableData) => {
-    data.selectShape({ clientID: data.clientID, shapeID: id });
+    rep.mutate.selectShape({ clientID: rep.cid, shapeID: id });
   };
   const onDrag = (e: DraggableEvent, d: DraggableData) => {
     // This is subtle, and worth drawing attention to:
@@ -23,7 +24,7 @@ export function RectController({ data, id }: { data: Data; id: string }) {
     // We will apply this movement to whatever the state happens to be when we
     // replay. If somebody else was moving the object at the same moment, we'll
     // then end up with a union of the two vectors, which is what we want!
-    data.moveShape({
+    rep.mutate.moveShape({
       id,
       dx: d.deltaX,
       dy: d.deltaY,
@@ -39,7 +40,7 @@ export function RectController({ data, id }: { data: Data; id: string }) {
       <div>
         <Rect
           {...{
-            data,
+            rep,
             id,
             highlight: false,
             onMouseEnter,

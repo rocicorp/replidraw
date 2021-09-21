@@ -22,7 +22,7 @@
     "react-draggable": "^4.4.3",
     "react-hotkeys": "^1.1.4",
     "replicache": "file:replicache-7.0.0-beta.3.tgz",
-    "replicache-react": "^1.0.0"
+    "replicache-react": "^2.0.0"
   },
   "devDependencies": {
     "@types/deep-equal": "^1.0.1",

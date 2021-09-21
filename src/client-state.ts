@@ -132,7 +132,7 @@ export function randUserInfo(): UserInfo {
 }
 
 function key(id: string): string {
-  return `${keyPrefix}${id}`;
+  return `${clientStatePrefix}${id}`;
 }
 
-export const keyPrefix = `client-state-`;
+export const clientStatePrefix = `client-state-`;

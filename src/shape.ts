@@ -35,7 +35,10 @@ export function putShape(
   return tx.put(key(id), shape);
 }
 
-export async function deleteShape(tx: WriteTransaction, id: string): Promise<void> {
+export async function deleteShape(
+  tx: WriteTransaction,
+  id: string
+): Promise<void> {
   await tx.del(key(id));
 }
 
@@ -93,10 +96,10 @@ export async function initShapes(
 }
 
 function key(id: string): string {
-  return `${keyPrefix}${id}`;
+  return `${shapePrefix}${id}`;
 }
 
-export const keyPrefix = "shape-";
+export const shapePrefix = "shape-";
 
 const colors = ["red", "blue", "white", "green", "yellow"];
 let nextColor = 0;

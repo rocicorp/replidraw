@@ -1,7 +1,8 @@
-import { Data } from "./data";
 import styles from "./collaborator.module.css";
 import { useEffect, useState } from "react";
 import { Rect } from "./rect";
+import { Rep } from "./rep";
+import { useClientInfo } from "./subscriptions";
 
 const hideCollaboratorDelay = 5000;
 
@@ -14,19 +15,19 @@ interface Position {
 }
 
 export function Collaborator({
-  data,
+  rep,
   clientID,
 }: {
-  data: Data;
+  rep: Rep;
   clientID: string;
 }) {
-  const clientInfo = data.useClientInfo(clientID);
+  const clientInfo = useClientInfo(rep, clientID);
   const curPos = clientInfo?.cursor;
   const userInfo = clientInfo?.userInfo;
   const [lastPos, setLastPos] = useState<Position | null>(null);
   const [gotFirstChange, setGotFirstChange] = useState(false);
   const [, setPoke] = useState({});
-  
+
   let elapsed = 0;
   let remaining = 0;
   let visible = false;
@@ -69,7 +70,7 @@ export function Collaborator({
       {clientInfo.selectedID && (
         <Rect
           {...{
-            data,
+            rep,
             key: `selection-${clientInfo.selectedID}`,
             id: clientInfo.selectedID,
             highlight: true,
