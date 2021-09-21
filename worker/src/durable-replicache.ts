@@ -126,7 +126,9 @@ export class DurableReplicache {
         return new Response(e.toString(), { status: 500 });
       }
     } finally {
-      console.log(`Processed ${request.url} in ${Date.now() - t0}ms`);
+      setTimeout(() => {
+        console.log(`bbb Durable Object ${request.url} ${Date.now() - t0}ms`);
+      }, 0);
     }
   }
 }
@@ -156,7 +158,8 @@ class WriteTransactionImpl implements WriteTransaction {
     if (v === undefined) {
       return v;
     }
-    return deepThaw(v);
+    return v as JSONValue | undefined;
+    //return deepThaw(v);
   }
   async has(key: string): Promise<boolean> {
     return await this._map.has(key);
@@ -225,9 +228,11 @@ async function push(
     const expectedMutationID = client.lastMutationID + 1;
 
     if (mutation.id < expectedMutationID) {
+      /*
       console.log(
         `Mutation ${mutation.id} has already been processed - skipping`,
       );
+      */
       continue;
     }
     if (mutation.id > expectedMutationID) {
