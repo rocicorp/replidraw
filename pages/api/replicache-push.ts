@@ -1,11 +1,12 @@
 import * as t from "io-ts";
 import { transact } from "../../backend/rds";
 import { getLastMutationID, setLastMutationID } from "../../backend/data";
-import Pusher from "pusher";
+import Ably from "ably";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { WriteTransactionImpl } from "../../backend/write-transaction-impl";
 import { mutators } from "../../frontend/mutators";
 import { must } from "../../frontend/decode";
+import { resolver } from "../../backend/resolver";
 
 // TODO: Either generate schema from mutator types, or vice versa, to tighten this.
 // See notes in bug: https://github.com/rocicorp/replidraw/issues/47
@@ -107,18 +108,20 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
   console.log("Processed all mutations in", Date.now() - t0);
 
-  const pusher = new Pusher({
-    appId: "1157097",
-    key: "d9088b47d2371d532c4c",
-    secret: "64204dab73c42e17afc3",
-    cluster: "us3",
-    useTLS: true,
-  });
-
   const t2 = Date.now();
-  // We need to await here otherwise, Next.js will frequently kill the request
-  // and the poke won't get sent.
-  await pusher.trigger("default", "poke", {});
+
+  const ably = new Ably.Realtime("au5tJQ.cM-6HQ:Bh6Uw0EmAkKqIMaL");
+  const channel = ably.channels.get(`room/${docID}`);
+  const { promise, resolve, reject } = resolver();
+  channel.publish("poke", {}, (err: Ably.Types.ErrorInfo | undefined) => {
+    if (err) {
+      reject(err);
+    }
+    resolve();
+  });
+  await promise;
+  ably.close();
+
   console.log("Sent poke in", Date.now() - t2);
 
   res.status(200).json({});

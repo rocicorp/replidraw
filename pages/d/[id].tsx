@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Replicache } from "replicache";
 import { Designer } from "../../frontend/designer";
 import { Nav } from "../../frontend/nav";
-import Pusher from "pusher-js";
+import Ably from "ably";
 import { M, mutators } from "../../frontend/mutators";
 import { randUserInfo } from "../../frontend/client-state";
 import { randomShape } from "../../frontend/shape";
@@ -38,12 +38,10 @@ export default function Home() {
         }
       };
 
-      Pusher.logToConsole = true;
-      var pusher = new Pusher("d9088b47d2371d532c4c", {
-        cluster: "us3",
-      });
-      var channel = pusher.subscribe("default");
-      channel.bind("poke", function (data: unknown) {
+      // TODO: Implement Ably auth correctly.
+      const realtime = new Ably.Realtime("au5tJQ.cM-6HQ:Bh6Uw0EmAkKqIMaL");
+      const channel = realtime.channels.get(`room/${docID}`);
+      channel.subscribe("poke", () => {
         r.pull();
       });
 
