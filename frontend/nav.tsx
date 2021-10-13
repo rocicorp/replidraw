@@ -5,7 +5,7 @@ import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import { useUserInfo } from "./subscriptions";
-import { Replicache } from "replicache";
+import { ReadTransaction, Replicache } from "replicache";
 import { M } from "./mutators";
 
 export function Nav({ rep }: { rep: Replicache<M> }) {
@@ -18,6 +18,19 @@ export function Nav({ rep }: { rep: Replicache<M> }) {
     if (shareVisible) {
       urlBox.current && urlBox.current.select();
     }
+
+    return rep.subscribe(
+      async (tx: ReadTransaction) => {
+        return (await tx.get("_testLatency")) as number | undefined;
+      },
+      {
+        onData: (result: number | undefined) => {
+          if (result !== undefined) {
+            console.log(`Took: ${Date.now() - result}`);
+          }
+        },
+      }
+    );
   });
 
   const onRectangle = () => {
@@ -75,6 +88,14 @@ export function Nav({ rep }: { rep: Replicache<M> }) {
           onClick={() => showAbout(true)}
         >
           About this Demo
+        </div>
+        <div
+          className={styles.button}
+          onClick={() => {
+            rep.mutate.testLatency();
+          }}
+        >
+          Test Latency
         </div>
         <div className={styles.spacer}></div>
         {userInfo && (
