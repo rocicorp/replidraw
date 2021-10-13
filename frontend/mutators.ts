@@ -1,3 +1,4 @@
+import { WriteTransaction } from "replicache";
 import {
   initClientState,
   setCursor,
@@ -26,4 +27,7 @@ export const mutators = {
   overShape,
   selectShape,
   initShapes,
+  testLatency: async (tx: WriteTransaction) => {
+    await tx.put("_testLatency", Date.now());
+  },
 };
