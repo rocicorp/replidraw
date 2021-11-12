@@ -1,6 +1,6 @@
 import type { JSONValue, ScanResult, WriteTransaction } from "replicache";
 import { delObject, getObject, putObject } from "./data";
-import { ExecuteStatementFn, transact } from "./rds";
+import { Executor } from "./db";
 
 /**
  * Implements Replicache's WriteTransaction interface in terms of a MySQL
@@ -8,13 +8,13 @@ import { ExecuteStatementFn, transact } from "./rds";
  */
 export class WriteTransactionImpl implements WriteTransaction {
   private _docID: string;
-  private _executor: ExecuteStatementFn;
+  private _executor: Executor;
   private _cache: Map<
     string,
     { value: JSONValue | undefined; dirty: boolean }
   > = new Map();
 
-  constructor(executor: ExecuteStatementFn, docID: string) {
+  constructor(executor: Executor, docID: string) {
     this._docID = docID;
     this._executor = executor;
   }

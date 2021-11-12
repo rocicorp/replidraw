@@ -1,6 +1,9 @@
 import { ReadTransaction, WriteTransaction } from "replicache";
-import * as t from "io-ts";
-import { must } from "./decode";
+import {
+  ClientState,
+  clientStateSchema,
+  UserInfo,
+} from "../schemas/client-state";
 import { randInt } from "./rand";
 
 const colors = [
@@ -34,27 +37,6 @@ const avatars = [
   ["🐣", "Chick"],
 ];
 
-export const userInfo = t.type({
-  avatar: t.string,
-  name: t.string,
-  color: t.string,
-});
-
-// TODO: It would be good to merge this with the first-class concept of `client`
-// that Replicache itself manages if possible.
-export const clientState = t.type({
-  cursor: t.type({
-    x: t.number,
-    y: t.number,
-  }),
-  overID: t.string,
-  selectedID: t.string,
-  userInfo: userInfo,
-});
-
-export type UserInfo = t.TypeOf<typeof userInfo>;
-export type ClientState = t.TypeOf<typeof clientState>;
-
 export async function initClientState(
   tx: WriteTransaction,
   { id, defaultUserInfo }: { id: string; defaultUserInfo: UserInfo }
@@ -84,7 +66,7 @@ export async function getClientState(
   if (!jv) {
     throw new Error("Expected clientState to be initialized already: " + id);
   }
-  return must(clientState.decode(jv));
+  return clientStateSchema.parse(jv);
 }
 
 export function putClientState(

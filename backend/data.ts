@@ -1,61 +1,52 @@
-import type { ExecuteStatementFn } from "./rds";
 import { JSONValue } from "replicache";
+import { Executor } from "./db";
 
 export async function getCookie(
-  executor: ExecuteStatementFn,
+  executor: Executor,
   docID: string
 ): Promise<string> {
   const result = await executor(
-    "SELECT UNIX_TIMESTAMP(MAX(LastModified)) FROM Object WHERE DocumentID = :docID",
-    {
-      docID: { stringValue: docID },
-    }
+    "select max(extract(epoch from lastmodified)) from object where documentid = $1",
+    [docID]
   );
-  const version = result.records?.[0]?.[0]?.stringValue;
-  return version || "";
+  return result.rows[0]?.[result.fields[0].name] ?? "0";
 }
 
 export async function getLastMutationID(
-  executor: ExecuteStatementFn,
+  executor: Executor,
   clientID: string
 ): Promise<number> {
   const result = await executor(
-    "SELECT LastMutationID FROM Client WHERE Id = :id",
-    {
-      id: { stringValue: clientID },
-    }
+    "select lastmutationid from client where id = $1",
+    [clientID]
   );
-  return result.records?.[0]?.[0]?.longValue ?? 0;
+  return result.rows[0]?.lastmutationid ?? 0;
 }
 
 export async function setLastMutationID(
-  executor: ExecuteStatementFn,
+  executor: Executor,
   clientID: string,
   lastMutationID: number
 ): Promise<void> {
   await executor(
-    "INSERT INTO Client (Id, LastMutationID) VALUES (:id, :lastMutationID) " +
-      "ON DUPLICATE KEY UPDATE Id = :id, LastMutationID = :lastMutationID",
-    {
-      id: { stringValue: clientID },
-      lastMutationID: { longValue: lastMutationID },
-    }
+    "insert into client (id, lastmutationid) values ($1, $2) " +
+      "on conflict (id) do update set lastmutationid = $2",
+    [clientID, lastMutationID]
   );
 }
 
 export async function getObject(
-  executor: ExecuteStatementFn,
+  executor: Executor,
   documentID: string,
   key: string
 ): Promise<JSONValue | undefined> {
-  const { records } = await executor(
-    "SELECT V FROM Object WHERE DocumentID =:docID AND K = :key AND Deleted = False",
-    {
-      key: { stringValue: key },
-      docID: { stringValue: documentID },
-    }
+  const {
+    rows,
+  } = await executor(
+    "select v from object where documentid = $1 and k = $2 and deleted = false",
+    [documentID, key]
   );
-  const value = records?.[0]?.[0]?.stringValue;
+  const value = rows[0]?.v;
   if (!value) {
     return undefined;
   }
@@ -63,38 +54,31 @@ export async function getObject(
 }
 
 export async function putObject(
-  executor: ExecuteStatementFn,
+  executor: Executor,
   docID: string,
   key: string,
   value: JSONValue
 ): Promise<void> {
   await executor(
     `
-    INSERT INTO Object (DocumentID, K, V, Deleted)
-    VALUES (:docID, :key, :value, False)
-      ON DUPLICATE KEY UPDATE V = :value, Deleted = False
+    insert into object (documentid, k, v, deleted, lastmodified)
+    values ($1, $2, $3, false, now())
+      on conflict (documentid, k) do update set v = $3, deleted = false, lastmodified = now()
     `,
-    {
-      docID: { stringValue: docID },
-      key: { stringValue: key },
-      value: { stringValue: JSON.stringify(value) },
-    }
+    [docID, key, JSON.stringify(value)]
   );
 }
 
 export async function delObject(
-  executor: ExecuteStatementFn,
+  executor: Executor,
   docID: string,
   key: string
 ): Promise<void> {
   await executor(
     `
-    UPDATE Object SET Deleted = True
-    WHERE DocumentID = :docID AND K = :key
+    update object set deleted = true, lastmodified = now()
+    where documentid = $1 and k = $2
   `,
-    {
-      docID: { stringValue: docID },
-      key: { stringValue: key },
-    }
+    [docID, key]
   );
 }

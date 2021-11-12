@@ -1,20 +1,7 @@
 import { ReadTransaction, WriteTransaction } from "replicache";
-import * as t from "io-ts";
-import { must } from "./decode";
 import { nanoid } from "nanoid";
 import { randInt } from "./rand";
-
-export const shape = t.type({
-  type: t.literal("rect"),
-  x: t.number,
-  y: t.number,
-  width: t.number,
-  height: t.number,
-  rotate: t.number,
-  fill: t.string,
-});
-
-export type Shape = t.TypeOf<typeof shape>;
+import { Shape, shapeSchema } from "../schemas/shape";
 
 export async function getShape(
   tx: ReadTransaction,
@@ -25,7 +12,7 @@ export async function getShape(
     console.log(`Specified shape ${id} not found.`);
     return null;
   }
-  return must(shape.decode(jv));
+  return shapeSchema.parse(jv);
 }
 
 export function putShape(
