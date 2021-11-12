@@ -66,15 +66,30 @@ async function transactWithExecutor<R>(
   executor: Executor,
   body: TransactionBodyFn<R>
 ) {
-  await executor("begin");
-  try {
-    const r = await body(executor);
-    await executor("commit");
-    return r;
-  } catch (e) {
-    await executor("rollback");
-    throw e;
+  for (let i = 0; i < 10; i++) {
+    try {
+      await executor("begin");
+      try {
+        const r = await body(executor);
+        await executor("commit");
+        return r;
+      } catch (e) {
+        await executor("rollback");
+        throw e;
+      }
+    } catch (e) {
+      if (shouldRetryTransaction(e)) {
+        console.log(
+          `Retrying transaction due to error ${e} - attempt number ${i}`
+        );
+        continue;
+      }
+      throw new Error(
+        `Error executing SQL: ${((e as unknown) as any).toString()}`
+      );
+    }
   }
+  throw new Error("Tried to execute transacation too many times. Giving up.");
 }
 
 export async function createDatabase() {
@@ -87,35 +102,6 @@ export async function createDatabase() {
       id varchar(100) primary key not null,
       lastmutationid int not null)`);
 
-    // On normalization:
-    //
-    // For simplicity of demo purposes, and because we don't really need any
-    // advanced backend features, we model backend storage as a kv store. This
-    // allows us to share code more easily and reduces the amount of schema
-    // management goop.
-    //
-    // There's no particular reason that you couldn't use a fully-normalized
-    // relational model on the backend if you want (or need to for legacy)
-    // reasons. Just more work!
-    //
-    //
-    // On cookies:
-    //
-    // To maximize concurrency we don't want any write locks shared across
-    // clients. The canonical way to do this in a Replicache backends is to
-    // return a cookie which is a pointer into some server-side storage which
-    // contains information about what data was returned last time. This trades
-    // a small amount of highly contended write load at push time for a larger
-    // amount of uncontended read and write load at read-time.
-    //
-    // However, for this application it's even easier to just use a timestamp.
-    // There is some tiny chance of skew and losing data (e.g., if the server's
-    // time changes). However in that case we'll lose a moouse move update or
-    // something and just pick it up again next time it changes.
-    //
-    // There are many different strategies for calculating changed rows and the
-    // details are very dependent on what you are building. Contact us if you'd
-    // like help: https://replicache.dev/#contact.
     await executor(`create table object (
       k varchar(100) not null,
       v text not null,
@@ -129,4 +115,10 @@ export async function createDatabase() {
     await executor(`create index on object (deleted)`);
     await executor(`create index on object (lastmodified)`);
   });
+}
+
+//stackoverflow.com/questions/60339223/node-js-transaction-coflicts-in-postgresql-optimistic-concurrency-control-and
+function shouldRetryTransaction(err: unknown) {
+  const code = typeof err === "object" ? String((err as any).code) : null;
+  return code === "40001" || code === "40P01";
 }

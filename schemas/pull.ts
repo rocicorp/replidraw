@@ -2,7 +2,6 @@ import { z } from "zod";
 import { jsonSchema } from "./json";
 
 export const pullRequestSchema = z.object({
-  clientID: z.string(),
   cookie: jsonSchema,
   lastMutationID: z.number(),
   pullVersion: z.number(),
@@ -27,6 +26,7 @@ export const patchOperationSchema = z.union([
 export const patchSchema = z.array(patchOperationSchema);
 
 export const pullResponseSchema = z.object({
+  baseCookie: jsonSchema,
   cookie: jsonSchema,
   lastMutationID: z.number(),
   patch: patchSchema,

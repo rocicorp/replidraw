@@ -7,5 +7,5 @@
     "isolatedModules": false,
     "noEmit": false
   },
-  "include": ["server/**/*.ts"]
+  "include": ["backend/**/*.ts"]
 }

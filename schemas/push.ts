@@ -8,11 +8,16 @@ export const mutationSchema = z.object({
 });
 
 export const pushRequestSchema = z.object({
-  clientID: z.string(),
+  id: z.string(),
   mutations: z.array(mutationSchema),
   pushVersion: z.number(),
   schemaVersion: z.string(),
 });
 
+export const pushResponseSchema = z.object({
+  id: z.string(),
+});
+
 export type Mutation = z.infer<typeof mutationSchema>;
-export type PushRequequest = z.infer<typeof pushRequestSchema>;
+export type PushRequest = z.infer<typeof pushRequestSchema>;
+export type PushResponse = z.infer<typeof pushResponseSchema>;
