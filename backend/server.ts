@@ -77,12 +77,9 @@ app.prepare().then(() => {
   });
 
   server.on("upgrade", (req, socket, head) => {
-    const url = parse(req.url, true);
-    if (url.pathname !== "/_next/webpack-hmr") {
-      wss.handleUpgrade(req, socket, head, (ws) => {
-        wss.emit("connection", ws, req);
-      });
-    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
+    });
   });
 
   server.listen(port, () => {
