@@ -14,38 +14,33 @@ import { nanoid } from "nanoid";
 export default function Home() {
   const [rep, setRep] = useState<Replicache<M> | null>(null);
 
-  // TODO: Think through Replicache + SSR.
+  // TODO: Replicache + SSR could be cool!
   useEffect(() => {
     (async () => {
       if (rep) {
         return;
       }
 
-      let ws: WebSocket | null = null;
-      const getSocket = async () => {
-        if (!ws) {
-          const url = new URL(location.href);
-          url.protocol = url.protocol.replace("http", "ws");
-          url.searchParams.set("clientID", await r.clientID);
-          ws = new WebSocket(url.toString());
-          ws.addEventListener("message", (e) => {
-            const data = JSON.parse(e.data);
-            const [type] = responseSchema.parse(data);
-            if (type == "pokeRes") {
-              r.pull();
-            }
-          });
-        }
-        return ws;
-      };
-
       const [, , docID] = location.pathname.split("/");
       const r = new Replicache({
-        // This business with pusher and puller is a little involved right now
-        // because have to simulate a response to return to it so that backoff
-        // cna work correctly. Need to adjust that.
+        useMemstore: true,
+        name: docID,
+        mutators,
+
+        // These pusher and puller implementations are a bit hacky for the moment.
+        // Even though the core replicache protocol is very asynchronous and doesn't
+        // care about replies, there are two exceptions:
+        //
+        // - The connection loop wants to know when a response is done so that it can
+        //   do exponential backoff.
+        // - The puller needs to know the response to pull because it needs to enforce
+        //   that pulls are serialized.
+        //
+        // When we fix both of these things in Replicache, this will get a lot simpler
+        // because the responses will go away.
+
         pusher: async (req) => {
-          const ws = await getSocket();
+          const ws = await socket;
           const pushReq = (await req.json()) as PushRequest;
           pushReq.id = nanoid();
           const msg: Request = ["pushReq", pushReq];
@@ -70,8 +65,9 @@ export default function Home() {
           ws.send(JSON.stringify(msg));
           return await promise;
         },
+
         puller: async (req) => {
-          const ws = await getSocket();
+          const ws = await socket;
           const pullReq = (await req.json()) as PullRequest;
           const msg: Request = ["pullReq", pullReq];
 
@@ -99,10 +95,26 @@ export default function Home() {
 
           return await promise;
         },
-        useMemstore: true,
-        name: docID,
-        mutators,
       });
+
+      const socket = (async () => {
+        const url = new URL(location.href);
+        url.protocol = url.protocol.replace("http", "ws");
+        url.searchParams.set("clientID", await r.clientID);
+        const ws = new WebSocket(url.toString());
+        const { promise, resolve } = resolver<WebSocket>();
+        ws.addEventListener("open", () => {
+          resolve(ws);
+        });
+        ws.addEventListener("message", (e) => {
+          const data = JSON.parse(e.data);
+          const [type] = responseSchema.parse(data);
+          if (type == "pokeRes") {
+            r.pull();
+          }
+        });
+        return await promise;
+      })();
 
       const defaultUserInfo = randUserInfo();
       await r.mutate.initClientState({
