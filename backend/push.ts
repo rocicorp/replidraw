@@ -1,30 +1,22 @@
-import { transact } from "../../backend/db";
-import { getLastMutationID, setLastMutationID } from "../../backend/data";
+import { transact } from "./db";
+import { getLastMutationID, setLastMutationID } from "./data";
 import Pusher from "pusher";
-import type { NextApiRequest, NextApiResponse } from "next";
-import { WriteTransactionImpl } from "../../backend/write-transaction-impl";
-import { mutators } from "../../frontend/mutators";
-import { pushRequestSchema } from "../../schemas/push";
+import { WriteTransactionImpl } from "./write-transaction-impl";
+import { mutators } from "../frontend/mutators";
+import { PushRequest } from "../schemas/push";
 
-export default async (req: NextApiRequest, res: NextApiResponse) => {
-  console.log("Processing push", JSON.stringify(req.body, null, ""));
-
-  const docID = req.query["docID"].toString();
-  const push = pushRequestSchema.safeParse(req.body);
-  if (!push.success) {
-    res.status(400).json(push.error.errors);
-    return;
-  }
+export async function handlePushRequest(push: PushRequest, docID: string) {
+  console.log("Processing push", JSON.stringify(push, null, ""));
 
   const t0 = Date.now();
   await transact(async (client) => {
     const tx = new WriteTransactionImpl(client, docID);
 
-    let lastMutationID = await getLastMutationID(client, push.data.clientID);
+    let lastMutationID = await getLastMutationID(client, push.clientID);
     console.log("lastMutationID:", lastMutationID);
 
-    for (let i = 0; i < push.data.mutations.length; i++) {
-      const mutation = push.data.mutations[i];
+    for (let i = 0; i < push.mutations.length; i++) {
+      const mutation = push.mutations[i];
       const expectedMutationID = lastMutationID + 1;
 
       if (mutation.id < expectedMutationID) {
@@ -59,7 +51,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     }
 
     await Promise.all([
-      setLastMutationID(client, push.data.clientID, lastMutationID),
+      setLastMutationID(client, push.clientID, lastMutationID),
       tx.flush(),
     ]);
   });
@@ -77,6 +69,4 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   const t2 = Date.now();
   pusher.trigger("default", "poke", {});
   console.log("Sent poke in", Date.now() - t2);
-
-  res.status(200).send("OK");
-};
+}

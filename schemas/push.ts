@@ -15,4 +15,4 @@ export const pushRequestSchema = z.object({
 });
 
 export type Mutation = z.infer<typeof mutationSchema>;
-export type PushRequequest = z.infer<typeof pushRequestSchema>;
+export type PushRequest = z.infer<typeof pushRequestSchema>;

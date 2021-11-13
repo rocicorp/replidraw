@@ -2,7 +2,11 @@ import { createServer } from "http";
 import WebSocket from "ws";
 import { parse } from "url";
 import next from "next";
-import { Socket } from "node:net";
+import { requestSchema } from "../schemas/socket";
+import { handlePushRequest } from "./push";
+import { PushRequest } from "schemas/push";
+import { handlePullRequest } from "./pull";
+import { PullRequest } from "schemas/pull";
 
 const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
@@ -58,8 +62,8 @@ app.prepare().then(() => {
       clients.splice(index, 1);
     });
 
-    client.socket.on("message", (data: any) => {
-      console.log("message", data);
+    client.socket.on("message", (data) => {
+      handleSocketRequest(client, data);
     });
   });
 
@@ -78,3 +82,21 @@ app.prepare().then(() => {
     );
   });
 });
+
+function handleSocketRequest(client: Client, data: WebSocket.RawData) {
+  const message = requestSchema.safeParse(data);
+  if (!message.success) {
+    console.error(message.error);
+    return;
+  }
+
+  const [type, payload] = message.data;
+  switch (type) {
+    case "pushReq":
+      handlePushRequest(payload as PushRequest, client.roomID);
+      break;
+    case "pullReq":
+      handlePullRequest(payload as PullRequest, client.roomID, client.socket);
+      break;
+  }
+}
