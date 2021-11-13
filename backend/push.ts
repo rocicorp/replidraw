@@ -21,7 +21,7 @@ export async function handlePushRequest(
 
   const t0 = Date.now();
   await transact(async (executor) => {
-    const tx = new WriteTransactionImpl(executor, docID);
+    const tx = new WriteTransactionImpl(executor, clientID, docID);
 
     let lastMutationID = await getLastMutationID(executor, clientID);
     console.log("lastMutationID:", lastMutationID);

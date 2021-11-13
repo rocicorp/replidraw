@@ -7,6 +7,7 @@ import { Executor } from "./db";
  * transaction.
  */
 export class WriteTransactionImpl implements WriteTransaction {
+  private _clientID: string;
   private _docID: string;
   private _executor: Executor;
   private _cache: Map<
@@ -14,9 +15,14 @@ export class WriteTransactionImpl implements WriteTransaction {
     { value: JSONValue | undefined; dirty: boolean }
   > = new Map();
 
-  constructor(executor: Executor, docID: string) {
+  constructor(executor: Executor, clientID: string, docID: string) {
+    this._clientID = clientID;
     this._docID = docID;
     this._executor = executor;
+  }
+
+  get clientID(): string {
+    return this._clientID;
   }
 
   async put(key: string, value: JSONValue): Promise<void> {

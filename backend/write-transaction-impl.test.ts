@@ -11,7 +11,7 @@ setup(async () => {
 
 test("WriteTransactionImpl", async () => {
   await transact(async (tx) => {
-    const writeTx = new WriteTransactionImpl(tx, "foo");
+    const writeTx = new WriteTransactionImpl(tx, "c1", "foo");
 
     expect(await writeTx.has("foo")).to.be.false;
     expect(await writeTx.get("foo")).to.be.undefined;
@@ -21,7 +21,7 @@ test("WriteTransactionImpl", async () => {
     expect(await writeTx.get("foo")).to.equal("bar");
 
     // They don't overlap until one flushes and the other is reloaded.
-    const writeTx2 = new WriteTransactionImpl(tx, "foo");
+    const writeTx2 = new WriteTransactionImpl(tx, "c1", "foo");
     expect(await writeTx2.has("foo")).to.be.false;
     expect(await writeTx2.get("foo")).to.be.undefined;
 
@@ -29,7 +29,7 @@ test("WriteTransactionImpl", async () => {
 
     // Go ahead and flush one
     await writeTx.flush();
-    const writeTx3 = new WriteTransactionImpl(tx, "foo");
+    const writeTx3 = new WriteTransactionImpl(tx, "c1", "foo");
     expect(await writeTx3.has("foo")).to.be.true;
     expect(await writeTx3.get("foo")).to.equal("bar");
   });
