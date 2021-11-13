@@ -9,7 +9,7 @@ export function useShapeIDs(rep: Replicache<typeof mutators>) {
     rep,
     async (tx) => {
       const shapes = await tx.scan({ prefix: shapePrefix }).keys().toArray();
-      return shapes.map((k) => k.split("-", 2)[1]);
+      return shapes.map((k) => k.substr(shapePrefix.length));
     },
     []
   );
