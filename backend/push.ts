@@ -1,74 +1,35 @@
-import { transact } from "./db";
-import { getLastMutationID, setLastMutationID } from "./data";
-import { WriteTransactionImpl } from "./write-transaction-impl";
-import { mutators } from "../frontend/mutators";
 import { PushRequest } from "../schemas/push";
-import WebSocket from "ws";
-import { Response } from "schemas/socket";
+import { Loop } from "./loop";
+import { Client } from "./server";
 
-export async function handlePushRequest(
-  push: PushRequest,
-  docID: string,
-  clientID: string,
-  socket: WebSocket
-) {
+export async function push(push: PushRequest, client: Client, loop: Loop) {
   console.log(
     "Processing push",
     JSON.stringify(push, null, ""),
     "for client",
-    clientID
+    client.clientID
   );
 
   const t0 = Date.now();
-  await transact(async (executor) => {
-    const tx = new WriteTransactionImpl(executor, clientID, docID);
+  let prevTimestamp = 0;
 
-    let lastMutationID = await getLastMutationID(executor, clientID);
-    console.log("lastMutationID:", lastMutationID);
+  for (const m of push.mutations) {
+    // TODO: Normalize timestamp
+    m.timestamp = Math.max(prevTimestamp, performance.now());
+    prevTimestamp = m.timestamp;
 
-    for (let i = 0; i < push.mutations.length; i++) {
-      const mutation = push.mutations[i];
-      const expectedMutationID = lastMutationID + 1;
-
-      if (mutation.id < expectedMutationID) {
-        console.log(
-          `Mutation ${mutation.id} has already been processed - skipping`
-        );
-        continue;
-      }
-      if (mutation.id > expectedMutationID) {
-        console.warn(`Mutation ${mutation.id} is from the future - aborting`);
-        break;
-      }
-
-      console.log("Processing mutation:", JSON.stringify(mutation, null, ""));
-
-      const t1 = Date.now();
-      const mutator = (mutators as any)[mutation.name];
-      if (!mutator) {
-        console.error(`Unknown mutator: ${mutation.name} - skipping`);
-      }
-
-      try {
-        await mutator(tx, mutation.args);
-      } catch (e) {
-        console.error(
-          `Error executing mutator: ${JSON.stringify(mutator)}: ${e}`
-        );
-      }
-
-      lastMutationID = expectedMutationID;
-      console.log("Processed mutation in", Date.now() - t1);
+    const idx = client.pending.findIndex((p) => p.id >= m.id);
+    if (idx == -1) {
+      client.pending.push(m);
+    } else if (client.pending[idx].id == m.id) {
+      console.log(`Pending mutation ${m.id} already queued`);
+      continue;
+    } else {
+      client.pending.splice(idx, 0, m);
     }
+  }
 
-    await Promise.all([
-      setLastMutationID(executor, clientID, lastMutationID),
-      tx.flush(),
-    ]);
-  });
+  loop.run();
 
-  console.log("Processed all mutations in", Date.now() - t0);
-
-  const pushRes: Response = ["pushRes", { id: push.id }];
-  socket.send(JSON.stringify(pushRes));
+  console.log(`Processed push in ${Date.now() - t0}ms`);
 }
