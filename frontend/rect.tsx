@@ -1,7 +1,6 @@
 import React, { MouseEventHandler, TouchEventHandler } from "react";
 import { Replicache } from "replicache";
 import { M } from "./mutators";
-import { useShape } from "./smoothie";
 import { useShapeByID } from "./subscriptions";
 
 export function Rect({
@@ -24,12 +23,11 @@ export function Rect({
   onMouseLeave?: MouseEventHandler;
 }) {
   const shape = useShapeByID(rep, id);
-  const coords = useShape(rep, id);
-  if (!shape || !coords) {
+  if (!shape) {
     return null;
   }
 
-  const { x, y, w, h, r } = coords;
+  const { x, y, width, height, rotate } = shape;
   const enableEvents =
     onMouseDown || onTouchStart || onMouseEnter || onMouseLeave;
 
@@ -40,11 +38,11 @@ export function Rect({
           position: "absolute",
           left: -1,
           top: -1,
-          transform: `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`,
+          transform: `translate3d(${x}px, ${y}px, 0) rotate(${rotate}deg)`,
           pointerEvents: enableEvents ? "all" : "none",
         },
-        width: w + 2,
-        height: h + 2,
+        width: width + 2,
+        height: height + 2,
         onMouseDown,
         onTouchStart,
         onMouseEnter,
@@ -57,8 +55,8 @@ export function Rect({
           y: 1,
           strokeWidth: highlight ? "2px" : "0",
           stroke: highlightColor,
-          width: w,
-          height: h,
+          width: width,
+          height: height,
           fill: highlight ? "none" : shape.fill,
         }}
       />

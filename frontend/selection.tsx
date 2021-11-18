@@ -1,8 +1,9 @@
 import { Rect } from "./rect";
-import { useShape } from "./smoothie";
 import { DraggableCore, DraggableEvent, DraggableData } from "react-draggable";
 import { Replicache } from "replicache";
 import { M } from "./mutators";
+import { useShapeByID } from "./subscriptions";
+import { Shape } from "schemas/shape";
 
 export function Selection({
   rep,
@@ -13,22 +14,22 @@ export function Selection({
   id: string;
   containerOffsetTop: number | null;
 }) {
-  const coords = useShape(rep, id);
+  const shape = useShapeByID(rep, id);
   const gripSize = 19;
 
-  const center = (coords: NonNullable<ReturnType<typeof useShape>>) => {
+  const center = (shape: Shape) => {
     return {
-      x: coords.x + coords.w / 2,
-      y: coords.y + coords.h / 2,
+      x: shape.x + shape.width / 2,
+      y: shape.y + shape.height / 2,
     };
   };
 
   const onResize = (e: DraggableEvent, d: DraggableData) => {
-    if (!coords) {
+    if (!shape) {
       return;
     }
 
-    const shapeCenter = center(coords);
+    const shapeCenter = center(shape);
 
     const size = (x1: number, x2: number, y1: number, y2: number) => {
       const distanceSqFromCenterToCursor =
@@ -48,13 +49,13 @@ export function Selection({
   };
 
   const onRotate = (e: DraggableEvent, d: DraggableData) => {
-    if (!coords || containerOffsetTop === null) {
+    if (!shape || containerOffsetTop === null) {
       return;
     }
 
     const offsetY = d.y - containerOffsetTop;
 
-    const shapeCenter = center(coords);
+    const shapeCenter = center(shape);
     const before = Math.atan2(
       offsetY - d.deltaY - shapeCenter.y,
       d.x - d.deltaX - shapeCenter.x
@@ -64,11 +65,11 @@ export function Selection({
     rep.mutate.rotateShape({ id, ddeg: ((after - before) * 180) / Math.PI });
   };
 
-  if (!coords) {
+  if (!shape) {
     return null;
   }
 
-  const { x, y, w, h, r } = coords;
+  const { x, y, width, height, rotate } = shape;
 
   return (
     <div>
@@ -82,9 +83,9 @@ export function Selection({
       <div
         style={{
           position: "absolute",
-          transform: `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`,
-          width: w,
-          height: h,
+          transform: `translate3d(${x}px, ${y}px, 0) rotate(${rotate}deg)`,
+          width,
+          height,
           pointerEvents: "none",
         }}
       >
@@ -94,8 +95,8 @@ export function Selection({
             height={gripSize}
             style={{
               position: "absolute",
-              transform: `translate3d(${w - gripSize / 2 - 2}px, ${
-                h - gripSize / 2 - 2
+              transform: `translate3d(${width - gripSize / 2 - 2}px, ${
+                height - gripSize / 2 - 2
               }px, 0)`,
               cursor: "grab",
               pointerEvents: "all",
@@ -116,8 +117,8 @@ export function Selection({
             height={gripSize}
             style={{
               position: "absolute",
-              transform: `translate3d(${w + gripSize * 1.5}px, ${
-                h / 2 - gripSize / 2
+              transform: `translate3d(${width + gripSize * 1.5}px, ${
+                height / 2 - gripSize / 2
               }px, 0)`,
               cursor: "grab",
               pointerEvents: "all",
