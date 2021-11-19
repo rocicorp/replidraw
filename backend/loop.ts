@@ -1,5 +1,10 @@
 import { Executor, transact } from "./db";
-import { setClientRecord, ClientRecord, mustGetClientRecords } from "./data";
+import {
+  setClientRecord,
+  ClientRecord,
+  mustGetClientRecords,
+  getCookie,
+} from "./data";
 import { Mutation } from "../schemas/push";
 import { ClientID, ClientMap } from "./server";
 import { sendPokes, ClientPokeResponse, computePokes } from "./poke";
@@ -15,6 +20,10 @@ export type RoomID = string;
 // Returns false when there is no more work to do.
 export type Step = () => Promise<boolean>;
 
+/**
+ * A game loop that runs some `Step` function periodically until the step has
+ * no more work to do.
+ */
 export class Loop {
   private _step: Step;
   private _now: Now;
@@ -52,6 +61,14 @@ export class Loop {
   }
 }
 
+/**
+ * Advances the game loop one step by running all mutations in all rooms that
+ * are ready and sending out the relevant pokes on the coresponding Clients.
+ *
+ * @param clients All currently connected clients.
+ * @param mutators All known mutators.
+ * @returns false if there are no mutations ready to execute, true if there might be.
+ */
 export async function step(
   clients: ClientMap,
   mutators: Record<string, Function>
@@ -86,6 +103,15 @@ export async function step(
   return true;
 }
 
+/**
+ * Advances a single room forward by executing a set of mutations against it.
+ *
+ * @param executor A database executor to read and write to.
+ * @param roomID The room to step.
+ * @param mutations The mutations to execute.
+ * @param mutators All currently registered mutators.
+ * @returns Pokes that need to be sent to clients after the changes to executor are committed.
+ */
 export async function stepRoom(
   executor: Executor,
   roomID: string,
@@ -95,9 +121,14 @@ export async function stepRoom(
   const t0 = Date.now();
 
   // Sort by time received by server.
+  // push() guarantees that timestamps increase monotonically with respect to mutation IDs within
+  // each client. So sorting by timestamp globally should also give us mutation IDs sorted ascending.
+  // However, this function's correctness doesn't depend on that: if a mutation is out of order,
+  // it will not be processed. If this happens in real life, the result will be that that client
+  // will stall, rather than have its mutations applied out of order.
   mutations.sort((a, b) => a.timestamp - b.timestamp);
 
-  // Load records for clients who have mutations this step.
+  // Load records for affected clients.
   const affectedClientsIDs = [...new Set(mutations.map((m) => m.clientID))];
   const affectedClientRecords = await mustGetClientRecords(
     executor,
@@ -108,31 +139,38 @@ export async function stepRoom(
   const tx = new EntryCache(new PostgresStorage(executor, roomID));
   const t1 = Date.now();
   for (const m of mutations) {
-    const clientRecord = affectedClientRecords.get(m.clientID)!;
-    const consumed = await stepMutation(tx, m, clientRecord, mutators);
+    const cr = affectedClientRecords.get(m.clientID)!;
+    const consumed = await stepMutation(tx, m, cr.lastMutationID, mutators);
     if (consumed) {
-      clientRecord.lastMutationID = m.id;
+      cr.lastMutationID = m.id;
     }
   }
   const t2 = Date.now();
   console.log(`Processed ${mutations.length} in ${t2 - t1}ms`);
 
-  // Flush changes to both objects and clients to tx.
-  await Promise.all([
-    tx.flush(),
-    [...affectedClientRecords.values()].map((record) =>
-      setClientRecord(executor, record)
-    ),
-  ]);
-  const t3 = Date.now();
-  console.log(`Flushed changes in ${t3 - t2}ms`);
+  // Flush changes to objects to the executor.
+  await tx.flush();
 
   // Calculate pokes.
   const pokes = await computePokes(executor, roomID, [
     ...affectedClientRecords.values(),
   ]);
+  const t3 = Date.now();
+  console.log(`Computed pokes in ${t3 - t2}ms`);
+
+  // Now we can get the new room cookie and update all the CRs
+  const roomCookie = await getCookie(executor, roomID);
+  await Promise.all(
+    [...affectedClientRecords.values()].map((cr) =>
+      setClientRecord(executor, {
+        ...cr,
+        baseCookie: roomCookie,
+      })
+    )
+  );
+
   const t4 = Date.now();
-  console.log(`Computed pokes in ${t4 - t3}ms`);
+  console.log(`Flushed changes in ${t4 - t3}ms`);
 
   const elapsed = t4 - t0;
   console.log(`Completed step in ${elapsed}ms`);
@@ -140,15 +178,23 @@ export async function stepRoom(
   return pokes;
 }
 
+/**
+ * Executes a single mutation against a room.
+ * @param parentCache The object cache to read and write to.
+ * @param mutation The mutation to execute.
+ * @param clientLastMutationID The last mutation ID executed by this client.
+ * @param mutators All known mutators.
+ * @returns True if the mutation was processed, false otherwise.
+ */
 export async function stepMutation(
   parentCache: EntryCache,
   mutation: ClientMutation,
-  clientRecord: ClientRecord,
+  clientLastMutationID: number,
   mutators: Record<string, Function>
 ): Promise<boolean> {
   const cache = new EntryCache(parentCache);
-  const repTx = new ReplicacheTransaction(cache, clientRecord.id);
-  const expectedMutationID = clientRecord.lastMutationID + 1;
+  const repTx = new ReplicacheTransaction(cache, mutation.clientID);
+  const expectedMutationID = clientLastMutationID + 1;
   if (mutation.id < expectedMutationID) {
     console.log(
       `Mutation ${mutation.id} has already been processed - skipping`
@@ -174,6 +220,11 @@ export async function stepMutation(
   return true;
 }
 
+/**
+ * Gets all ready mutations and returns them grouped by room.
+ * @param clients Clients to get mutations from.
+ * @returns
+ */
 export function getPendingMutationsByRoom(
   clients: ClientMap
 ): Map<RoomID, ClientMutation[]> {
@@ -198,6 +249,11 @@ export function getPendingMutationsByRoom(
   return res;
 }
 
+/**
+ * Clear pending mutations from a list.
+ * @param pending list of pending mutations to edit, sorted by lmid.
+ * @param lmid Last processed mutation ID.
+ */
 export async function clearPending(pending: Mutation[], lmid: number) {
   if (pending.length === 0) {
     return;
