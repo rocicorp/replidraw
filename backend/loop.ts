@@ -88,7 +88,17 @@ export async function step(
     const pokes = [];
     // TODO: We could parallelize this.
     for (const [roomID, mutations] of mutationsByRoom) {
-      pokes.push(...(await stepRoom(executor, roomID, mutations, mutators)));
+      pokes.push(
+        ...(await stepRoom(
+          executor,
+          roomID,
+          mutations,
+          mutators,
+          [...clients.values()]
+            .filter((c) => c.roomID == roomID)
+            .map((c) => c.clientID)
+        ))
+      );
     }
     return pokes;
   });
@@ -112,13 +122,15 @@ export async function step(
  * @param roomID The room to step.
  * @param mutations The mutations to execute.
  * @param mutators All currently registered mutators.
+ * @param connectedClients Clients we will return pokes for.
  * @returns Pokes that need to be sent to clients after the changes to executor are committed.
  */
 export async function stepRoom(
   executor: Executor,
   roomID: string,
   mutations: ClientMutation[],
-  mutators: Record<string, Function>
+  mutators: Record<string, Function>,
+  connectedClients: ClientID[]
 ): Promise<ClientPokeResponse[]> {
   const t0 = Date.now();
 
@@ -131,11 +143,18 @@ export async function stepRoom(
   mutations.sort((a, b) => a.timestamp - b.timestamp);
 
   // Load records for affected clients.
-  const affectedClientsIDs = [...new Set(mutations.map((m) => m.clientID))];
-  const affectedClientRecords = await mustGetClientRecords(
-    executor,
-    affectedClientsIDs
-  );
+  // We need the records for all clients who sent mutations even if they are no longer connected,
+  // because we still need to execute those mutations.
+  // We need the clients for everyone in the room, even if they didn't send a message, because we
+  // need to send them pokes.
+  const affectedClientsIDs = new Set([
+    ...mutations.map((m) => m.clientID),
+    ...connectedClients,
+  ]);
+
+  const affectedClientRecords = await mustGetClientRecords(executor, [
+    ...affectedClientsIDs,
+  ]);
 
   // Process mutations.
   const tx = new EntryCache(new PostgresStorage(executor, roomID));
@@ -154,9 +173,12 @@ export async function stepRoom(
   await tx.flush();
 
   // Calculate pokes.
-  const pokes = await computePokes(executor, roomID, [
-    ...affectedClientRecords.values(),
-  ]);
+  const pokes = await computePokes(
+    executor,
+    roomID,
+    connectedClients,
+    affectedClientRecords
+  );
   const t3 = Date.now();
   console.log(`Computed pokes in ${t3 - t2}ms`);
 
@@ -175,7 +197,7 @@ export async function stepRoom(
   console.log(`Flushed changes in ${t4 - t3}ms`);
 
   const elapsed = t4 - t0;
-  console.log(`Completed step in ${elapsed}ms`);
+  console.log(`Completed stepRoom in ${elapsed}ms`);
 
   return pokes;
 }

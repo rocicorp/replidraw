@@ -12,14 +12,15 @@ export type ClientPokeResponse = {
 export async function computePokes(
   executor: Executor,
   roomID: string,
-  affectedClientRecords: ClientRecord[]
+  clientIDs: ClientID[],
+  records: Map<ClientID, ClientRecord>
 ): Promise<ClientPokeResponse[]> {
   // Current cookie for this room.
   const cookie = await getCookie(executor, roomID);
 
   // Typically every client will have same exact base cookie. Let's only compute the distinct patches we need to.
   const distinctBaseCookies = [
-    ...new Set(affectedClientRecords.map((c) => c.baseCookie)),
+    ...new Set(clientIDs.map((id) => records.get(id)!.baseCookie)),
   ];
 
   // Calculate all distinct patches in parallel.
@@ -36,7 +37,8 @@ export async function computePokes(
   );
 
   // ... and return resulting pokes
-  const res = affectedClientRecords.map((cr) => {
+  const res = clientIDs.map((clientID) => {
+    const cr = records.get(clientID)!;
     const patch = patches.get(cr.baseCookie)!;
     return {
       clientID: cr.id,

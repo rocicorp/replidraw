@@ -277,8 +277,8 @@ test("stepRoom", async () => {
         ["a", 1],
       ],
       expectedClientState: {
-        b: { baseCookie: null, lastMutationID: 1 },
         a: { baseCookie: null, lastMutationID: 1 },
+        b: { baseCookie: null, lastMutationID: 1 },
       },
     },
     {
@@ -287,8 +287,8 @@ test("stepRoom", async () => {
       mutations: [clientMutation(1, "a", 42), clientMutation(2, "b", 41)],
       expectedLog: [["a", 1]],
       expectedClientState: {
-        b: { baseCookie: null, lastMutationID: 0 },
         a: { baseCookie: null, lastMutationID: 1 },
+        b: { baseCookie: null, lastMutationID: 0 },
       },
     },
     {
@@ -324,7 +324,8 @@ test("stepRoom", async () => {
         executor,
         roomID,
         c.mutations,
-        loggingMutators
+        loggingMutators,
+        [...distinctClientIDs]
       );
 
       // Compute the expected pokes.
