@@ -15,6 +15,8 @@ export async function push(push: PushRequest, client: Client, loop: Loop) {
 
   for (const m of push.mutations) {
     // TODO: Normalize timestamp
+    // TODO: This logic is not correct - timestamps must increase monotonically
+    // with respect to mutation IDs within each client.
     m.timestamp = Math.max(prevTimestamp, performance.now());
     prevTimestamp = m.timestamp;
 
