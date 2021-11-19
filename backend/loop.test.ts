@@ -10,7 +10,6 @@ import {
   getCookie,
   getObject,
   mustGetClientRecord,
-  mustGetClientRecords,
   setClientRecord,
 } from "./data";
 import { transact } from "./db";
@@ -20,12 +19,140 @@ import {
   ClientMutation,
   getPendingMutationsByRoom,
   RoomID,
+  step,
   stepMutation,
   stepRoom,
 } from "./loop";
 import { PostgresStorage } from "./postgres-storage";
 import { Client, ClientID, ClientMap } from "./server";
 import { ClientPokeResponse } from "./poke";
+import { Response } from "schemas/network";
+
+test("step", async () => {
+  // step must:
+  // - gather pending mutations from clients and group by room
+  // - step each room
+  // - commit changes to db
+  // - clear pending mutations on clients
+  // - send pokes
+  type Case = {
+    name: string;
+    clientRecords: ClientRecord[];
+    clients: ClientMap;
+    expectedResult: boolean;
+    expectedRecords: ClientRecord[];
+    expectedPending: Map<ClientID, ClientMutation[]>;
+    expectedPokes: ClientPokeResponse[];
+  };
+
+  const cases: Case[] = [
+    {
+      name: "no clients",
+      clientRecords: [],
+      clients: new Map(),
+      expectedResult: false,
+      expectedRecords: [],
+      expectedPending: new Map(),
+      expectedPokes: [],
+    },
+    {
+      name: "no clients with pending",
+      clientRecords: [],
+      clients: clientMap(client("a", "r1", 0), client("b", "r1", 0)),
+      expectedResult: false,
+      expectedRecords: [],
+      expectedPending: new Map(),
+      expectedPokes: [],
+    },
+    {
+      name: "one pending",
+      clientRecords: [clientRecord("a", "r1", null, 0)],
+      clients: clientMap(client("a", "r1", 1)),
+      expectedResult: true,
+      expectedRecords: [clientRecord("a", "r1", 1, 1)],
+      expectedPending: new Map([["a", []]]),
+      expectedPokes: [clientPoke("a", null, 1, 1, [["a", 1]])],
+    },
+    {
+      name: "two pending, one room",
+      clientRecords: [
+        clientRecord("a", "r1", null, 0),
+        clientRecord("b", "r1", null, 0),
+      ],
+      clients: clientMap(client("a", "r1", 1), client("b", "r1", 1)),
+      expectedResult: true,
+      expectedRecords: [
+        // cookie is 1 because both mutations affect same key, so we only write to postgres once
+        clientRecord("a", "r1", 1, 1),
+        clientRecord("b", "r1", 1, 1),
+      ],
+      expectedPending: new Map([
+        ["a", []],
+        ["b", []],
+      ]),
+      expectedPokes: [
+        clientPoke("a", null, 1, 1, [
+          ["a", 1],
+          ["b", 1],
+        ]),
+        clientPoke("b", null, 1, 1, [
+          ["a", 1],
+          ["b", 1],
+        ]),
+      ],
+    },
+    {
+      name: "two pending, two rooms",
+      clientRecords: [
+        clientRecord("a", "r1", null, 0),
+        clientRecord("b", "r2", null, 0),
+      ],
+      clients: clientMap(client("a", "r1", 1), client("b", "r2", 1)),
+      expectedResult: true,
+      expectedRecords: [
+        clientRecord("a", "r1", 1, 1),
+        clientRecord("b", "r2", 2, 1),
+      ],
+      expectedPending: new Map([
+        ["a", []],
+        ["b", []],
+      ]),
+      expectedPokes: [
+        clientPoke("a", null, 1, 1, [["a", 1]]),
+        clientPoke("b", null, 2, 1, [["b", 1]]),
+      ],
+    },
+  ];
+
+  for (const c of cases) {
+    await createDatabase();
+    await transact(async (tx) => {
+      Promise.all(c.clientRecords.map((r) => setClientRecord(tx, r)));
+    });
+
+    const res = await step(c.clients, loggingMutators);
+    expect(res).to.equal(c.expectedResult, c.name);
+
+    await transact(async (tx) => {
+      for (const expected of c.expectedRecords) {
+        const actual = await mustGetClientRecord(tx, expected.id);
+        expect(actual).to.deep.equal(expected, c.name);
+      }
+    });
+
+    for (const [clientID, expected] of c.expectedPending) {
+      const actual = c.clients.get(clientID)!.pending;
+      expect(actual).to.deep.equal(expected, c.name);
+    }
+
+    for (const expected of c.expectedPokes) {
+      const actual = (c.clients.get(expected.clientID)!.socket as MockSocket)
+        .messages;
+      const exp: Response = ["poke", expected.poke];
+      expect(actual).to.deep.equal([JSON.stringify(exp)], c.name);
+    }
+  }
+});
 
 test("stepRoom", async () => {
   // stepRoom must:
@@ -56,20 +183,6 @@ test("stepRoom", async () => {
     >;
   };
 
-  const mutation = (
-    clientID: string,
-    mutationID: number,
-    timestamp: number
-  ) => ({
-    clientID,
-    id: mutationID,
-    name: "m",
-    // We just pass the mutationID as the argument because all we're trying to do
-    // is create a log of the mutations that ran.
-    args: mutationID,
-    timestamp,
-  });
-
   const cases: Case[] = [
     {
       name: "none",
@@ -79,7 +192,7 @@ test("stepRoom", async () => {
     },
     {
       name: "one",
-      mutations: [mutation("a", 1, 42)],
+      mutations: [clientMutation(1, "a", 42)],
       expectedLog: [["a", 1]],
       expectedClientState: {
         a: { baseCookie: null, lastMutationID: 1 },
@@ -87,7 +200,7 @@ test("stepRoom", async () => {
     },
     {
       name: "one client two mutations",
-      mutations: [mutation("a", 2, 42), mutation("a", 1, 41)],
+      mutations: [clientMutation(2, "a", 42), clientMutation(1, "a", 41)],
       expectedLog: [
         ["a", 1],
         ["a", 2],
@@ -98,7 +211,7 @@ test("stepRoom", async () => {
     },
     {
       name: "two clients two mutations",
-      mutations: [mutation("a", 1, 42), mutation("b", 1, 41)],
+      mutations: [clientMutation(1, "a", 42), clientMutation(1, "b", 41)],
       expectedLog: [
         ["b", 1],
         ["a", 1],
@@ -111,7 +224,7 @@ test("stepRoom", async () => {
     {
       name: "two clients one stalled",
       // b cannot run because next mutation id for him is 1
-      mutations: [mutation("a", 1, 42), mutation("b", 2, 41)],
+      mutations: [clientMutation(1, "a", 42), clientMutation(2, "b", 41)],
       expectedLog: [["a", 1]],
       expectedClientState: {
         b: { baseCookie: null, lastMutationID: 0 },
@@ -121,7 +234,7 @@ test("stepRoom", async () => {
     {
       name: "two clients, one duplicate",
       // a's mutation has already been processed
-      mutations: [mutation("a", 0, 42), mutation("b", 1, 43)],
+      mutations: [clientMutation(0, "a", 42), clientMutation(1, "b", 43)],
       expectedLog: [["b", 1]],
       expectedClientState: {
         a: { baseCookie: null, lastMutationID: 0 },
@@ -144,13 +257,6 @@ test("stepRoom", async () => {
   ];
 
   const roomID = "r1";
-  const mutators = {
-    m: async (tx: WriteTransaction, mutationID: number) => {
-      const log = ((await tx.get("log")) ?? []) as [ClientID, number][];
-      log.push([tx.clientID, mutationID]);
-      await tx.put("log", log);
-    },
-  };
 
   for (const c of cases) {
     await transact(async (executor) => {
@@ -167,7 +273,12 @@ test("stepRoom", async () => {
         });
       }
 
-      const res = await stepRoom(executor, roomID, c.mutations, mutators);
+      const res = await stepRoom(
+        executor,
+        roomID,
+        c.mutations,
+        loggingMutators
+      );
 
       // Compute the expected pokes.
       const roomCookie = await getCookie(executor, roomID);
@@ -308,13 +419,13 @@ test("getPendingMutationsByRoom", () => {
     {
       name: "one client, one mutation",
       clients: clientMap(client("c1", "r1", 1)),
-      expected: new Map([["r1", [clientMutation(0, "c1")]]]),
+      expected: new Map([["r1", [clientMutation(1, "c1")]]]),
     },
     {
       name: "two clients, two mutations, one room",
       clients: clientMap(client("c1", "r1", 1), client("c2", "r1", 1)),
       expected: new Map([
-        ["r1", [clientMutation(0, "c1"), clientMutation(0, "c2")]],
+        ["r1", [clientMutation(1, "c1"), clientMutation(1, "c2")]],
       ]),
     },
     {
@@ -325,8 +436,8 @@ test("getPendingMutationsByRoom", () => {
         client("c3", "r2", 1)
       ),
       expected: new Map([
-        ["r1", [clientMutation(0, "c1"), clientMutation(0, "c2")]],
-        ["r2", [clientMutation(0, "c3")]],
+        ["r1", [clientMutation(1, "c1"), clientMutation(1, "c2")]],
+        ["r2", [clientMutation(1, "c3")]],
       ]),
     },
     {
@@ -336,10 +447,10 @@ test("getPendingMutationsByRoom", () => {
         [
           "r1",
           [
-            clientMutation(0, "c1"),
             clientMutation(1, "c1"),
-            clientMutation(0, "c2"),
+            clientMutation(2, "c1"),
             clientMutation(1, "c2"),
+            clientMutation(2, "c2"),
           ],
         ],
       ]),
@@ -416,6 +527,38 @@ test("clearPending", () => {
   }
 });
 
+const loggingMutators = {
+  m: async (tx: WriteTransaction, mutationID: number) => {
+    const log = ((await tx.get("log")) ?? []) as [ClientID, number][];
+    log.push([tx.clientID, mutationID]);
+    await tx.put("log", log);
+  },
+};
+
+function clientPoke(
+  clientID: string,
+  baseCookie: Cookie,
+  cookie: Cookie,
+  lastMutationID: number,
+  logValue: [ClientID, number][]
+) {
+  return {
+    clientID,
+    poke: {
+      baseCookie,
+      cookie,
+      lastMutationID,
+      patch: [
+        {
+          op: "put" as const,
+          key: "log",
+          value: logValue,
+        },
+      ],
+    },
+  };
+}
+
 function clientMap(...clients: Client[]): ClientMap {
   const res = new Map<string, Client>();
   for (const c of clients) {
@@ -424,19 +567,44 @@ function clientMap(...clients: Client[]): ClientMap {
   return res;
 }
 
-function client(id: string, roomID: string, numPending = 0): Client {
+function clientRecord(
+  id: string,
+  roomID: string,
+  baseCookie: Cookie,
+  lastMutationID: number
+) {
+  return {
+    baseCookie,
+    documentID: roomID,
+    id,
+    lastMutationID,
+  };
+}
+
+function client(
+  id: string,
+  roomID: string,
+  numPending = 0,
+  startAtID = 1
+): Client {
   return {
     clientID: id,
     roomID,
-    pending: new Array(numPending).fill(0).map((_, i) => mutation(i)),
+    pending: new Array(numPending)
+      .fill(0)
+      .map((_, i) => mutation(startAtID + i)),
     socket: new MockSocket(),
   };
 }
 
-function clientMutation(id: number, clientID: string): ClientMutation {
+function clientMutation(
+  id: number,
+  clientID: string,
+  timestamp: number | undefined = undefined
+): ClientMutation {
   return {
     clientID,
-    timestamp: undefined,
+    timestamp,
     ...mutation(id),
   } as ClientMutation;
 }
@@ -444,8 +612,8 @@ function clientMutation(id: number, clientID: string): ClientMutation {
 function mutation(id: number): Mutation {
   return {
     id,
-    name: "a",
-    args: {},
+    name: "m",
+    args: id,
   };
 }
 
