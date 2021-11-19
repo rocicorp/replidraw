@@ -18,6 +18,7 @@ import {
   clearPending,
   ClientMutation,
   getPendingMutationsByRoom,
+  Loop,
   RoomID,
   step,
   stepMutation,
@@ -27,6 +28,68 @@ import { PostgresStorage } from "./postgres-storage";
 import { Client, ClientID, ClientMap } from "./server";
 import { ClientPokeResponse } from "./poke";
 import { Response } from "schemas/network";
+
+test("loop", async () => {
+  type Case = {
+    name: string;
+    stepVals: boolean[];
+    nowVals: number[];
+    expectedSleepCalls: number[];
+  };
+
+  const cases: Case[] = [
+    {
+      name: "nothing to do",
+      stepVals: [false],
+      nowVals: [0],
+      expectedSleepCalls: [],
+    },
+    {
+      name: "one",
+      stepVals: [true, false],
+      nowVals: [0, 10, 100],
+      expectedSleepCalls: [90],
+    },
+    {
+      name: "two",
+      stepVals: [true, true, false],
+      nowVals: [0, 10, 100, 100, 200],
+      expectedSleepCalls: [90, 100],
+    },
+    {
+      name: "overflow",
+      stepVals: [true, false],
+      nowVals: [0, 200, 200],
+      // should clamp to zero
+      expectedSleepCalls: [0],
+    },
+  ];
+
+  for (const c of cases) {
+    const step = async () => {
+      expect(c.stepVals.length).to.be.greaterThan(0, c.name);
+      return c.stepVals.shift()!;
+    };
+
+    const now = () => {
+      expect(c.nowVals.length).to.be.greaterThan(0, c.name);
+      return c.nowVals.shift()!;
+    };
+
+    const sleepCalls: number[] = [];
+    const sleep = (ms: number) => {
+      sleepCalls.push(ms);
+      return Promise.resolve();
+    };
+
+    const loop = new Loop(step, now, sleep, 100);
+    await loop.run();
+
+    expect(c.stepVals).to.deep.equal([], c.name);
+    expect(c.nowVals).to.deep.equal([], c.name);
+    expect(sleepCalls).to.deep.equal(c.expectedSleepCalls, c.name);
+  }
+});
 
 test("step", async () => {
   // step must:
