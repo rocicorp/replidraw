@@ -28,7 +28,7 @@ export function dispatchMessage(
   const [type, payload] = message.data;
   switch (type) {
     case "push":
-      push(payload as PushRequest, source, loop);
+      push(payload as PushRequest, source, loop, performance.now);
       break;
     default:
       source.socket.send(`invalid request type: ${type}`);
