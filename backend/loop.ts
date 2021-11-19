@@ -18,7 +18,7 @@ export type ClientMutation = Required<Mutation> & { clientID: ClientID };
 export type RoomID = string;
 
 // Returns false when there is no more work to do.
-export type Step = () => Promise<boolean>;
+export type Step = () => Promise<void>;
 
 /**
  * A game loop that runs some `Step` function periodically until the step has
@@ -30,6 +30,7 @@ export class Loop {
   private _sleep: Sleep;
   private _loopIntervalMs: number;
   private _running: boolean;
+  private _runPending: boolean;
 
   constructor(step: Step, now: Now, sleep: Sleep, loopIntervalMs: number) {
     this._step = step;
@@ -37,22 +38,26 @@ export class Loop {
     this._sleep = sleep;
     this._loopIntervalMs = loopIntervalMs;
     this._running = false;
+    this._runPending = false;
   }
 
   async run() {
     if (this._running) {
+      this._runPending = true;
       return;
     }
+
     this._running = true;
     try {
       for (;;) {
         const t0 = this._now();
-        const more = await this._step();
-        if (!more) {
-          break;
-        }
+        this._runPending = false;
+        await this._step();
         const t1 = this._now();
         const elapsed = t1 - t0;
+        if (!this._runPending) {
+          break;
+        }
         await this._sleep(Math.max(0, this._loopIntervalMs - elapsed));
       }
     } finally {
@@ -67,17 +72,16 @@ export class Loop {
  *
  * @param clients All currently connected clients.
  * @param mutators All known mutators.
- * @returns false if there are no mutations ready to execute, true if there might be.
  */
 export async function step(
   clients: ClientMap,
   mutators: Record<string, Function>
-): Promise<boolean> {
+): Promise<void> {
   const t0 = Date.now();
 
   const mutationsByRoom = getPendingMutationsByRoom(clients);
   if (mutationsByRoom.size === 0) {
-    return false;
+    return;
   }
 
   const pokes = await transact(async (executor) => {
@@ -99,8 +103,6 @@ export async function step(
   const t1 = Date.now();
   const elapsed = t1 - t0;
   console.log(`Completed step in ${elapsed}ms`);
-
-  return true;
 }
 
 /**
