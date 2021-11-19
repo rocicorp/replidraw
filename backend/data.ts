@@ -75,12 +75,14 @@ export async function getClientRecord(
     return null;
   }
   const [row] = result.rows;
-  return {
+  const res = {
     id: clientID,
     baseCookie: row.basecookie,
     lastMutationID: row.lastmutationid,
     documentID: row.documentid,
   };
+  console.log("getClientRecord", JSON.stringify(res));
+  return res;
 }
 
 export async function mustGetClientRecords(
@@ -100,6 +102,7 @@ export async function setClientRecord(
   executor: Executor,
   record: ClientRecord
 ): Promise<void> {
+  console.log("Saving clientRecord", JSON.stringify(record));
   await executor(
     "insert into client (id, basecookie, lastmutationid, documentid) values ($1, $2, $3, $4) " +
       "on conflict (id) do update set basecookie = $2, lastmutationid = $3, documentid = $4",

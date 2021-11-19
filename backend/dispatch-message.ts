@@ -21,7 +21,9 @@ export function dispatchMessage(
 
   const message = requestSchema.safeParse(v);
   if (!message.success) {
-    source.socket.send(`invalid request: ${message.error.issues}`);
+    source.socket.send(
+      `invalid request: ${JSON.stringify(message.error.issues)}`
+    );
     return;
   }
 

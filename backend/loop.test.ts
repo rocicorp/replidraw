@@ -32,44 +32,49 @@ import { Response } from "schemas/network";
 test("loop", async () => {
   type Case = {
     name: string;
-    stepVals: boolean[];
+    numRuns: number;
     nowVals: number[];
     expectedSleepCalls: number[];
   };
 
   const cases: Case[] = [
     {
-      name: "nothing to do",
-      stepVals: [false],
-      nowVals: [0],
+      name: "one",
+      numRuns: 1,
+      nowVals: [0, 10],
       expectedSleepCalls: [],
     },
     {
-      name: "one",
-      stepVals: [true, false],
-      nowVals: [0, 10, 100],
+      name: "two",
+      numRuns: 2,
+      nowVals: [0, 10, 100, 200],
       expectedSleepCalls: [90],
     },
     {
-      name: "two",
-      stepVals: [true, true, false],
-      nowVals: [0, 10, 100, 100, 200],
-      expectedSleepCalls: [90, 100],
+      name: "three",
+      numRuns: 3,
+      // We only run the loop twice because the second two calls get debounced
+      nowVals: [0, 10, 100, 200],
+      expectedSleepCalls: [90],
+    },
+    {
+      name: "seven",
+      numRuns: 7,
+      // We only run the loop twice because the second-seventh calls get debounced
+      nowVals: [0, 10, 100, 200],
+      expectedSleepCalls: [90],
     },
     {
       name: "overflow",
-      stepVals: [true, false],
-      nowVals: [0, 200, 200],
+      numRuns: 2,
+      nowVals: [0, 200, 300, 300],
       // should clamp to zero
       expectedSleepCalls: [0],
     },
   ];
 
   for (const c of cases) {
-    const step = async () => {
-      expect(c.stepVals.length).to.be.greaterThan(0, c.name);
-      return c.stepVals.shift()!;
-    };
+    const step = async () => {};
 
     const now = () => {
       expect(c.nowVals.length).to.be.greaterThan(0, c.name);
@@ -83,9 +88,8 @@ test("loop", async () => {
     };
 
     const loop = new Loop(step, now, sleep, 100);
-    await loop.run();
+    await Promise.all(new Array(c.numRuns).fill(0).map(() => loop.run()));
 
-    expect(c.stepVals).to.deep.equal([], c.name);
     expect(c.nowVals).to.deep.equal([], c.name);
     expect(sleepCalls).to.deep.equal(c.expectedSleepCalls, c.name);
   }
@@ -102,7 +106,6 @@ test("step", async () => {
     name: string;
     clientRecords: ClientRecord[];
     clients: ClientMap;
-    expectedResult: boolean;
     expectedRecords: ClientRecord[];
     expectedPending: Map<ClientID, ClientMutation[]>;
     expectedPokes: ClientPokeResponse[];
@@ -113,7 +116,6 @@ test("step", async () => {
       name: "no clients",
       clientRecords: [],
       clients: new Map(),
-      expectedResult: false,
       expectedRecords: [],
       expectedPending: new Map(),
       expectedPokes: [],
@@ -122,7 +124,6 @@ test("step", async () => {
       name: "no clients with pending",
       clientRecords: [],
       clients: clientMap(client("a", "r1", 0), client("b", "r1", 0)),
-      expectedResult: false,
       expectedRecords: [],
       expectedPending: new Map(),
       expectedPokes: [],
@@ -131,7 +132,6 @@ test("step", async () => {
       name: "one pending",
       clientRecords: [clientRecord("a", "r1", null, 0)],
       clients: clientMap(client("a", "r1", 1)),
-      expectedResult: true,
       expectedRecords: [clientRecord("a", "r1", 1, 1)],
       expectedPending: new Map([["a", []]]),
       expectedPokes: [clientPoke("a", null, 1, 1, [["a", 1]])],
@@ -143,7 +143,6 @@ test("step", async () => {
         clientRecord("b", "r1", null, 0),
       ],
       clients: clientMap(client("a", "r1", 1), client("b", "r1", 1)),
-      expectedResult: true,
       expectedRecords: [
         // cookie is 1 because both mutations affect same key, so we only write to postgres once
         clientRecord("a", "r1", 1, 1),
@@ -171,7 +170,6 @@ test("step", async () => {
         clientRecord("b", "r2", null, 0),
       ],
       clients: clientMap(client("a", "r1", 1), client("b", "r2", 1)),
-      expectedResult: true,
       expectedRecords: [
         clientRecord("a", "r1", 1, 1),
         clientRecord("b", "r2", 2, 1),
@@ -193,8 +191,7 @@ test("step", async () => {
       Promise.all(c.clientRecords.map((r) => setClientRecord(tx, r)));
     });
 
-    const res = await step(c.clients, loggingMutators);
-    expect(res).to.equal(c.expectedResult, c.name);
+    await step(c.clients, loggingMutators);
 
     await transact(async (tx) => {
       for (const expected of c.expectedRecords) {
@@ -280,8 +277,8 @@ test("stepRoom", async () => {
         ["a", 1],
       ],
       expectedClientState: {
-        b: { baseCookie: null, lastMutationID: 1 },
         a: { baseCookie: null, lastMutationID: 1 },
+        b: { baseCookie: null, lastMutationID: 1 },
       },
     },
     {
@@ -290,8 +287,8 @@ test("stepRoom", async () => {
       mutations: [clientMutation(1, "a", 42), clientMutation(2, "b", 41)],
       expectedLog: [["a", 1]],
       expectedClientState: {
-        b: { baseCookie: null, lastMutationID: 0 },
         a: { baseCookie: null, lastMutationID: 1 },
+        b: { baseCookie: null, lastMutationID: 0 },
       },
     },
     {
@@ -340,7 +337,8 @@ test("stepRoom", async () => {
         executor,
         roomID,
         c.mutations,
-        loggingMutators
+        loggingMutators,
+        [...distinctClientIDs]
       );
 
       // Compute the expected pokes.

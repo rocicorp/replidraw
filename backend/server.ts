@@ -6,7 +6,7 @@ import { Command } from "commander";
 import { connect } from "./connect";
 import { Mutation } from "schemas/push";
 import { Loop, step } from "./loop";
-import { mutators } from "frontend/mutators";
+import { mutators } from "../frontend/mutators";
 
 const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
