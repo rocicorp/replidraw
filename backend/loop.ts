@@ -265,6 +265,7 @@ export async function clearPending(pending: Mutation[], lmid: number) {
   // Could not find any such mutation. They have all been processed.
   if (idx === -1) {
     pending.length = 0;
+    return;
   }
 
   // Remove all mutations up to the first one that still needs to be processed.
