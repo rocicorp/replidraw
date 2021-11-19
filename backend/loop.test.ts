@@ -3,8 +3,16 @@ import { test } from "mocha";
 import { WriteTransaction } from "replicache";
 import { Mutation } from "../schemas/push";
 import { JSONType } from "../schemas/json";
-import { PokeResponse } from "../schemas/poke";
-import { ClientRecord, createDatabase } from "./data";
+import { Cookie, PokeResponse } from "../schemas/poke";
+import {
+  ClientRecord,
+  createDatabase,
+  getCookie,
+  getObject,
+  mustGetClientRecord,
+  mustGetClientRecords,
+  setClientRecord,
+} from "./data";
 import { transact } from "./db";
 import { EntryCache } from "./entry-cache";
 import {
@@ -13,77 +21,186 @@ import {
   getPendingMutationsByRoom,
   RoomID,
   stepMutation,
+  stepRoom,
 } from "./loop";
 import { PostgresStorage } from "./postgres-storage";
 import { Client, ClientID, ClientMap } from "./server";
+import { ClientPokeResponse } from "./poke";
 
-/*
-test("stepRoomSortOrder", async () => {
-  // run mutation in order of timestamp
-  // increment lmid of cr appropriately
-  // actually make changes
-  // return pokes
-  await createDatabase();
+test("stepRoom", async () => {
+  // stepRoom must:
+  // - sort input mutations by timestamp
+  // - no-op mutations that have already been processed
+  // - skip mutations from the future
+  // - write changes to passed executor:
+  //   - objects
+  //   - clients (lmid, baseCookie)
+  // - return appropriate pokes
+  //
+  // To test these properties we pass an unsorted list of mutations into
+  // stepRoom with a varying clientIDs and timestamps. The corresponding
+  // mutator does nothing but add a record to a log in a single key in the
+  // cache.
+  //
+  // After stepRoom returns, we validate the pokes it returned and then
+  // read the corresponding data out of the passed in executor and validate
+  // it.
 
   type Case = {
     name: string;
     mutations: ClientMutation[];
-    expected: [ClientID, number][];
-    expectedLMID: Record<ClientID, number>;
-    expectedPokes: Record<ClientID, PokeResponse>;
+    expectedLog: [ClientID, number][];
+    expectedClientState: Record<
+      ClientID,
+      { baseCookie: Cookie; lastMutationID: number }
+    >;
   };
 
-  const cases = [
+  const mutation = (
+    clientID: string,
+    mutationID: number,
+    timestamp: number
+  ) => ({
+    clientID,
+    id: mutationID,
+    name: "m",
+    // We just pass the mutationID as the argument because all we're trying to do
+    // is create a log of the mutations that ran.
+    args: mutationID,
+    timestamp,
+  });
+
+  const cases: Case[] = [
     {
-      name: "empty",
+      name: "none",
       mutations: [],
-      expected: [],
-      expectedLMID: {},
-      expecctedPokes: {},
+      expectedLog: [],
+      expectedClientState: {},
     },
     {
       name: "one",
-      mutations: [
-        {
-          clientID: "a",
-          id: 1,
-          name: "m",
-          args: null,
-          timestamp: 42,
-        },
-      ],
-      expected: [["a", 1]],
-      expectedLMID: { a: 1 },
-      expectedPokes: {
-
+      mutations: [mutation("a", 1, 42)],
+      expectedLog: [["a", 1]],
+      expectedClientState: {
+        a: { baseCookie: null, lastMutationID: 1 },
       },
     },
     {
       name: "one client two mutations",
-      mutations: [
-        {
-          clientID: "a",
-          id: 2,
-          name: "m",
-          args: null,
-          timestamp: 42,
-        },
-        {
-          clientID: "a",
-          id: 1,
-          name: "m",
-          args: null,
-          timestamp: 41,
-        },
-      ],
-      expected: [
+      mutations: [mutation("a", 2, 42), mutation("a", 1, 41)],
+      expectedLog: [
         ["a", 1],
         ["a", 2],
       ],
+      expectedClientState: {
+        a: { baseCookie: null, lastMutationID: 2 },
+      },
+    },
+    {
+      name: "two clients two mutations",
+      mutations: [mutation("a", 1, 42), mutation("b", 1, 41)],
+      expectedLog: [
+        ["b", 1],
+        ["a", 1],
+      ],
+      expectedClientState: {
+        b: { baseCookie: null, lastMutationID: 1 },
+        a: { baseCookie: null, lastMutationID: 1 },
+      },
+    },
+    {
+      name: "two clients one stalled",
+      // b cannot run because next mutation id for him is 1
+      mutations: [mutation("a", 1, 42), mutation("b", 2, 41)],
+      expectedLog: [["a", 1]],
+      expectedClientState: {
+        b: { baseCookie: null, lastMutationID: 0 },
+        a: { baseCookie: null, lastMutationID: 1 },
+      },
+    },
+    {
+      name: "two clients, one duplicate",
+      // a's mutation has already been processed
+      mutations: [mutation("a", 0, 42), mutation("b", 1, 43)],
+      expectedLog: [["b", 1]],
+      expectedClientState: {
+        a: { baseCookie: null, lastMutationID: 0 },
+        b: { baseCookie: null, lastMutationID: 1 },
+      },
+    },
+    {
+      name: "one clients, two duplicates",
+      // a's first two mutations have already been processed
+      mutations: [
+        clientMutation(-1, "a", 41),
+        clientMutation(0, "a", 42),
+        clientMutation(1, "a", 43),
+      ],
+      expectedLog: [["a", 1]],
+      expectedClientState: {
+        a: { baseCookie: null, lastMutationID: 1 },
+      },
     },
   ];
+
+  const roomID = "r1";
+  const mutators = {
+    m: async (tx: WriteTransaction, mutationID: number) => {
+      const log = ((await tx.get("log")) ?? []) as [ClientID, number][];
+      log.push([tx.clientID, mutationID]);
+      await tx.put("log", log);
+    },
+  };
+
+  for (const c of cases) {
+    await transact(async (executor) => {
+      await createDatabase();
+
+      // Initialize clients before calling stepRoom().
+      const distinctClientIDs = new Set(c.mutations.map((m) => m.clientID));
+      for (const id of distinctClientIDs) {
+        await setClientRecord(executor, {
+          id,
+          baseCookie: null,
+          documentID: roomID,
+          lastMutationID: 0,
+        });
+      }
+
+      const res = await stepRoom(executor, roomID, c.mutations, mutators);
+
+      // Compute the expected pokes.
+      const roomCookie = await getCookie(executor, roomID);
+      const expectedPokes: ClientPokeResponse[] = Object.entries(
+        c.expectedClientState
+      ).map(([clientID, state]) => ({
+        clientID,
+        poke: {
+          baseCookie: state.baseCookie,
+          cookie: roomCookie,
+          lastMutationID: state.lastMutationID,
+          patch: [
+            {
+              op: "put",
+              key: "log",
+              value: c.expectedLog,
+            },
+          ],
+        },
+      }));
+      expect(res).to.deep.equal(expectedPokes, c.name);
+
+      const log = (await getObject(executor, roomID, "log")) ?? [];
+      expect(log).to.deep.equal(c.expectedLog, c.name);
+
+      for (const [clientID, state] of Object.entries(c.expectedClientState)) {
+        const cr = await mustGetClientRecord(executor, clientID);
+        expect(cr.lastMutationID).to.equal(state.lastMutationID, c.name);
+        expect(cr.baseCookie).to.equal(roomCookie, c.name);
+      }
+    });
+  }
 });
-*/
 
 test("stepMutation", async () => {
   await createDatabase();
@@ -153,7 +270,12 @@ test("stepMutation", async () => {
         },
       };
 
-      const retVal = await stepMutation(entryCache, mutation, cr, mutators);
+      const retVal = await stepMutation(
+        entryCache,
+        mutation,
+        cr.lastMutationID,
+        mutators
+      );
       const changedVal = await entryCache.get("k");
       expect(retVal).to.equal(c.expectReturn, c.name);
       expect(changedVal).to.equal(c.expectChange ? i : undefined, c.name);

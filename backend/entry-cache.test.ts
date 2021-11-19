@@ -1,4 +1,3 @@
-import { ReplicacheTransaction } from "./replicache-transaction";
 import { transact, withExecutor } from "./db";
 import { expect } from "chai";
 import { setup, test } from "mocha";
