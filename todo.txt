@@ -1,11 +1,10 @@
-- file a bug about sync and init setup
 - file a bug about schema validating mutations
 - make connect fire a poke / double as pull
 - fix databaseSetup
 - figure out backoff some other way
 - make use of docID/documentID/roomID consistent! (let's use room)
-- the batched transactions in push don't discard state!
-  - fix clientid at same time
+x the batched transactions in push don't discard state!
+  x fix clientid at same time
 
 
 x remove pushRes and pull from protocol and server impl
@@ -18,11 +17,11 @@ x move replidraw to a socket
 x bring the Replicache.poke() pr back to life
 x test computePoke
 x test push
-- test pull
-- test connect
+- unit test pull
+- unit test connect
 x manual test server using postman
-- maybe fix up stats printing in push
-- integrate!
+x maybe fix up stats printing in push
+x integrate!
 ====
 - add timing to poke without queuing/loop
 - add loop
