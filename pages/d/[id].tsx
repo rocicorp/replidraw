@@ -38,7 +38,7 @@ export default function Home() {
         },
 
         requestOptions: {
-          minDelayMs: 50,
+          minDelayMs: 16,
         },
 
         // No puller: unneeded with poke
