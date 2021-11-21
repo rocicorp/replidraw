@@ -57,7 +57,7 @@ test("set/getClientRecord", async () => {
       id: "c1",
       baseCookie: 42,
       lastMutationID: 7,
-      documentID: "d1",
+      roomID: "d1",
     };
     await setClientRecord(executor, expected);
     expect(await getClientRecord(executor, "c1")).to.deep.equal(expected);
@@ -76,13 +76,13 @@ test("mustGetClientRecords", async () => {
         id: "c1",
         baseCookie: 42,
         lastMutationID: 7,
-        documentID: "d1",
+        roomID: "d1",
       },
       {
         id: "c2",
         baseCookie: 43,
         lastMutationID: 8,
-        documentID: "d2",
+        roomID: "d2",
       },
     ];
     for (const cr of expected) {

@@ -328,7 +328,7 @@ test("stepRoom", async () => {
         await setClientRecord(executor, {
           id,
           baseCookie: null,
-          documentID: roomID,
+          roomID,
           lastMutationID: 0,
         });
       }
@@ -430,7 +430,7 @@ test("stepMutation", async () => {
       };
       const cr: ClientRecord = {
         baseCookie: null,
-        documentID: "test",
+        roomID: "test",
         id: "c1",
         lastMutationID: 42,
       };
@@ -637,7 +637,7 @@ function clientRecord(
 ) {
   return {
     baseCookie,
-    documentID: roomID,
+    roomID,
     id,
     lastMutationID,
   };

@@ -15,18 +15,18 @@ export async function createDatabase() {
       id varchar(100) primary key not null,
       basecookie int null,
       lastmutationid int not null,
-      documentid varchar(100) not null)`);
+      roomid varchar(100) not null)`);
 
     await executor(`create table object (
       k varchar(100) not null,
       v text not null,
-      documentid varchar(100) not null,
+      roomid varchar(100) not null,
       deleted bool not null default false,
       version int not null,
-      unique (documentid, k)
+      unique (roomid, k)
       )`);
 
-    await executor(`create index on object (documentid)`);
+    await executor(`create index on object (roomid)`);
     await executor(`create index on object (deleted)`);
     await executor(`create index on object (version)`);
   });
@@ -36,7 +36,7 @@ export type ClientRecord = {
   id: string;
   baseCookie: Cookie;
   lastMutationID: number;
-  documentID: string;
+  roomID: string;
 };
 
 // We use the term "cookie" when referring to the opaque value that
@@ -46,11 +46,11 @@ export type Version = number;
 
 export async function getRoomVersion(
   executor: Executor,
-  docID: string
+  roomID: string
 ): Promise<number> {
   const result = await executor(
-    "select max(version) as version from object where documentid = $1",
-    [docID]
+    "select max(version) as version from object where roomid = $1",
+    [roomID]
   );
   return result.rows[0]?.version ?? 0;
 }
@@ -71,7 +71,7 @@ export async function getClientRecord(
   clientID: string
 ): Promise<ClientRecord | null> {
   const result = await executor(
-    "select basecookie, lastmutationid, documentid from client where id = $1",
+    "select basecookie, lastmutationid, roomid from client where id = $1",
     [clientID]
   );
   if (result.rows.length === 0) {
@@ -82,7 +82,7 @@ export async function getClientRecord(
     id: clientID,
     baseCookie: row.basecookie,
     lastMutationID: row.lastmutationid,
-    documentID: row.documentid,
+    roomID: row.roomid,
   };
   console.log("getClientRecord", JSON.stringify(res));
   return res;
@@ -107,9 +107,9 @@ export async function setClientRecord(
 ): Promise<void> {
   console.log("Saving clientRecord", JSON.stringify(record));
   await executor(
-    "insert into client (id, basecookie, lastmutationid, documentid) values ($1, $2, $3, $4) " +
-      "on conflict (id) do update set basecookie = $2, lastmutationid = $3, documentid = $4",
-    [record.id, record.baseCookie, record.lastMutationID, record.documentID]
+    "insert into client (id, basecookie, lastmutationid, roomid) values ($1, $2, $3, $4) " +
+      "on conflict (id) do update set basecookie = $2, lastmutationid = $3, roomid = $4",
+    [record.id, record.baseCookie, record.lastMutationID, record.roomID]
   );
 }
 
@@ -121,14 +121,14 @@ export async function setClientRecord(
  */
 export async function getObject(
   executor: Executor,
-  documentID: string,
+  roomID: string,
   key: string
 ): Promise<[JSONValue | undefined, Version]> {
   const {
     rows,
   } = await executor(
-    "select v, deleted, version from object where documentid = $1 and k = $2",
-    [documentID, key]
+    "select v, deleted, version from object where roomid = $1 and k = $2",
+    [roomID, key]
   );
   const [row] = rows;
   if (!row) {
@@ -140,32 +140,32 @@ export async function getObject(
 
 export async function putObject(
   executor: Executor,
-  docID: string,
+  roomID: string,
   key: string,
   value: JSONValue,
   version: Version
 ): Promise<void> {
   await executor(
     `
-    insert into object (documentid, k, v, deleted, version)
+    insert into object (roomid, k, v, deleted, version)
     values ($1, $2, $3, false, $4)
-      on conflict (documentid, k) do update set v = $3, deleted = false, version = $4
+      on conflict (roomid, k) do update set v = $3, deleted = false, version = $4
     `,
-    [docID, key, JSON.stringify(value), version]
+    [roomID, key, JSON.stringify(value), version]
   );
 }
 
 export async function delObject(
   executor: Executor,
-  docID: string,
+  roomID: string,
   key: string,
   version: number
 ): Promise<void> {
   await executor(
     `
     update object set deleted = true, version = $3
-    where documentid = $1 and k = $2
+    where roomid = $1 and k = $2
   `,
-    [docID, key, version]
+    [roomID, key, version]
   );
 }

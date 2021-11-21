@@ -20,10 +20,10 @@ export default function Home() {
         return;
       }
 
-      const [, , docID] = location.pathname.split("/");
+      const [, , roomID] = location.pathname.split("/");
       const r = new Replicache({
         useMemstore: true,
-        name: docID,
+        name: roomID,
         mutators,
 
         pusher: async (req) => {

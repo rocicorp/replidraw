@@ -2,7 +2,8 @@
 - make connect fire a poke / double as pull
 - fix databaseSetup
 - figure out backoff some other way
-- make use of docID/documentID/roomID consistent! (let's use room)
+- getObject->getValue
+x make use of docID/documentID/roomID consistent! (let's use room)
 x the batched transactions in push don't discard state!
   x fix clientid at same time
 

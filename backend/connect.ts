@@ -47,8 +47,8 @@ export async function connect(
   await transact(async (tx) => {
     let record = await getClientRecord(tx, clientID);
     if (record) {
-      if (record.documentID != roomID) {
-        ws.send(`Cannot change roomID - already in room ${record.documentID}`);
+      if (record.roomID != roomID) {
+        ws.send(`Cannot change roomID - already in room ${record.roomID}`);
         ws.close();
       }
       record.baseCookie = baseCookie.data;
@@ -57,7 +57,7 @@ export async function connect(
         id: clientID,
         lastMutationID: 0,
         baseCookie: baseCookie.data,
-        documentID: roomID,
+        roomID: roomID,
       };
     }
     await setClientRecord(tx, record);

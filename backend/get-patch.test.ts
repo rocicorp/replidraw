@@ -15,9 +15,9 @@ setup(async () => {
 test("getPatch", async () => {
   await withExecutor(async (executor) => {
     type Case = {
-      puts?: { key: string; docID: string; value: number; version: number }[];
-      dels?: { key: string; docID: string; version: number }[];
-      docID: string;
+      puts?: { key: string; roomID: string; value: number; version: number }[];
+      dels?: { key: string; roomID: string; version: number }[];
+      roomID: string;
       fromCookie: Cookie;
       expected: PatchOperation[];
     };
@@ -25,9 +25,9 @@ test("getPatch", async () => {
     const cases: Case[] = [
       // Add item "a" and test it comes out with null sync
       {
-        puts: [{ key: "a", docID: "d1", value: 1, version: 2 }],
+        puts: [{ key: "a", roomID: "d1", value: 1, version: 2 }],
         fromCookie: null,
-        docID: "d1",
+        roomID: "d1",
         expected: [
           {
             op: "put",
@@ -39,7 +39,7 @@ test("getPatch", async () => {
       // ... and incremental sync
       {
         fromCookie: 1,
-        docID: "d1",
+        roomID: "d1",
         expected: [
           {
             op: "put",
@@ -51,13 +51,13 @@ test("getPatch", async () => {
       // ... but doesn't come back incrementally syncing from a later cookie
       {
         fromCookie: 2,
-        docID: "d1",
+        roomID: "d1",
         expected: [],
       },
       // add item "b" and test both a and b come back for null sync
       {
-        puts: [{ key: "b", docID: "d1", value: 2, version: 3 }],
-        docID: "d1",
+        puts: [{ key: "b", roomID: "d1", value: 2, version: 3 }],
+        roomID: "d1",
         fromCookie: null,
         expected: [
           {
@@ -75,7 +75,7 @@ test("getPatch", async () => {
       // ... but only b comes back when incrementally syncing after a
       {
         puts: [],
-        docID: "d1",
+        roomID: "d1",
         fromCookie: 2,
         expected: [
           {
@@ -88,21 +88,21 @@ test("getPatch", async () => {
       // set the cookie past both items
       {
         puts: [],
-        docID: "d1",
+        roomID: "d1",
         fromCookie: 3,
         expected: [],
       },
       // even more past
       {
         puts: [],
-        docID: "d1",
+        roomID: "d1",
         fromCookie: 4,
         expected: [],
       },
       // delete item a
       {
-        dels: [{ key: "a", docID: "d1", version: 4 }],
-        docID: "d1",
+        dels: [{ key: "a", roomID: "d1", version: 4 }],
+        roomID: "d1",
         fromCookie: 3,
         expected: [
           {
@@ -113,7 +113,7 @@ test("getPatch", async () => {
       },
       {
         fromCookie: 4,
-        docID: "d1",
+        roomID: "d1",
         expected: [],
       },
       // add something in another doc, no affect
@@ -121,12 +121,12 @@ test("getPatch", async () => {
         puts: [
           {
             key: "a",
-            docID: "d2",
+            roomID: "d2",
             value: 42,
             version: 5,
           },
         ],
-        docID: "d1",
+        roomID: "d1",
         fromCookie: 4,
         expected: [],
       },
@@ -134,12 +134,12 @@ test("getPatch", async () => {
 
     for (const c of cases) {
       for (const p of c.puts || []) {
-        await putObject(executor, p.docID, p.key, p.value, p.version);
+        await putObject(executor, p.roomID, p.key, p.value, p.version);
       }
       for (const d of c.dels || []) {
-        await delObject(executor, d.docID, d.key, d.version);
+        await delObject(executor, d.roomID, d.key, d.version);
       }
-      const patch = await getPatch(executor, c.docID, c.fromCookie);
+      const patch = await getPatch(executor, c.roomID, c.fromCookie);
       expect(patch).to.deep.equal(c.expected);
     }
   });
