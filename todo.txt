@@ -1,3 +1,63 @@
+step(connectedClients, mutators, startTimestamp)
+- get pending mutations
+- sort by room
+- open tx
+- get version for room
+- get initial patch for connected clients
+- get all the affected client records
+- step each affected room (accumulating a set of patches, mutating records)
+- commit tx
+- send pokes
+
+stepRoom(cache, version, mutations, mutators, clientRecords, startTimestamp)
+- split mutations into frames
+- for each frame:
+  - step frame
+  - accumulate patches
+- return [version, patches]
+
+stepFrame(cache, version, mutations, mutators, clientRecords)
+- create child cache
+xxx ack this cache has to have its own version so the cookies work
+xxx need to fix
+- for each mutation:
+  - stepMutation
+- get patch from cache
+- return patch
+
+stepMutation(cache, mutation, mutators, clientRecord)
+- run mutation
+- update record as necessary
+
+
+
+
+
+- collect mutations to run
+- calculate "mutators" -> clients that have mutated something this run
+- sort mutations by room -> the keys of this map are the "affected rooms"
+- calculate "affectedClients" -> clients in rooms that will be stepped
+- open tx:
+  - load all affected clients
+    - note: it should not be possible for a mutator to not show up in
+      affectedClients because messages cannot be received until after
+      connect and because clients cannot change rooms.
+  - create DBStorage
+  - create EntryCache
+  - for each affected room:
+    - getVersionForRoom
+    - patches.push(stepRoom(mutationsForRoom, mutators, clientRecords, versionForRoom)0
+
+  - calculatePokes(executors, affectedClients)
+
+
+
+
+
+
+
+
+
 - file a bug about schema validating mutations
 - make connect fire a poke / double as pull
 - fix databaseSetup
