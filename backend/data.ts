@@ -9,7 +9,7 @@ export async function createDatabase() {
   await transact(async (executor) => {
     // TODO: Proper versioning for schema.
     await executor("drop table if exists client cascade");
-    await executor("drop table if exists object cascade");
+    await executor("drop table if exists entry cascade");
 
     await executor(`create table client (
       id varchar(100) primary key not null,
@@ -17,7 +17,7 @@ export async function createDatabase() {
       lastmutationid int not null,
       roomid varchar(100) not null)`);
 
-    await executor(`create table object (
+    await executor(`create table entry (
       k varchar(100) not null,
       v text not null,
       roomid varchar(100) not null,
@@ -26,9 +26,9 @@ export async function createDatabase() {
       unique (roomid, k)
       )`);
 
-    await executor(`create index on object (roomid)`);
-    await executor(`create index on object (deleted)`);
-    await executor(`create index on object (version)`);
+    await executor(`create index on entry (roomid)`);
+    await executor(`create index on entry (deleted)`);
+    await executor(`create index on entry (version)`);
   });
 }
 
@@ -49,7 +49,7 @@ export async function getRoomVersion(
   roomID: string
 ): Promise<number> {
   const result = await executor(
-    "select max(version) as version from object where roomid = $1",
+    "select max(version) as version from entry where roomid = $1",
     [roomID]
   );
   return result.rows[0]?.version ?? 0;
@@ -119,7 +119,7 @@ export async function setClientRecord(
  * Because the database implements delete with soft deletes, the value can be
  * undefined while the verison is > 0.
  */
-export async function getObject(
+export async function getEntry(
   executor: Executor,
   roomID: string,
   key: string
@@ -127,7 +127,7 @@ export async function getObject(
   const {
     rows,
   } = await executor(
-    "select v, deleted, version from object where roomid = $1 and k = $2",
+    "select v, deleted, version from entry where roomid = $1 and k = $2",
     [roomID, key]
   );
   const [row] = rows;
@@ -138,7 +138,7 @@ export async function getObject(
   return [deleted ? undefined : JSON.parse(v), version];
 }
 
-export async function putObject(
+export async function putEntry(
   executor: Executor,
   roomID: string,
   key: string,
@@ -147,7 +147,7 @@ export async function putObject(
 ): Promise<void> {
   await executor(
     `
-    insert into object (roomid, k, v, deleted, version)
+    insert into entry (roomid, k, v, deleted, version)
     values ($1, $2, $3, false, $4)
       on conflict (roomid, k) do update set v = $3, deleted = false, version = $4
     `,
@@ -155,7 +155,7 @@ export async function putObject(
   );
 }
 
-export async function delObject(
+export async function delEntry(
   executor: Executor,
   roomID: string,
   key: string,
@@ -163,7 +163,7 @@ export async function delObject(
 ): Promise<void> {
   await executor(
     `
-    update object set deleted = true, version = $3
+    update entry set deleted = true, version = $3
     where roomid = $1 and k = $2
   `,
     [roomID, key, version]

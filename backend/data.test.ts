@@ -2,11 +2,11 @@ import { expect } from "chai";
 import { setup, test } from "mocha";
 import {
   createDatabase,
-  delObject,
+  delEntry,
   getRoomVersion,
   getClientRecord,
-  getObject,
-  putObject,
+  getEntry,
+  putEntry,
   setClientRecord,
   ClientRecord,
   mustGetClientRecord,
@@ -23,19 +23,19 @@ setup(async () => {
 
 test("put/get/del", async () => {
   await withExecutor(async (executor) => {
-    expect(await getObject(executor, "doc1", "foo")).to.deep.equal([
+    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal([
       undefined,
       0,
     ]);
 
-    await putObject(executor, "doc1", "foo", "bar", 1);
-    expect(await getObject(executor, "doc1", "foo")).to.deep.equal(["bar", 1]);
+    await putEntry(executor, "doc1", "foo", "bar", 1);
+    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal(["bar", 1]);
 
-    await putObject(executor, "doc1", "foo", "baz", 2);
-    expect(await getObject(executor, "doc1", "foo")).to.deep.equal(["baz", 2]);
+    await putEntry(executor, "doc1", "foo", "baz", 2);
+    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal(["baz", 2]);
 
-    await delObject(executor, "doc1", "foo", 3);
-    expect(await getObject(executor, "doc1", "foo")).to.deep.equal([
+    await delEntry(executor, "doc1", "foo", 3);
+    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal([
       undefined,
       3,
     ]);
@@ -109,27 +109,27 @@ test("getRoomVersion", async () => {
     expect(await getRoomVersion(executor, "d1")).equal(0);
 
     // We always return the highest version on any row for the cookie
-    await putObject(executor, "d1", "a", "a", 1);
+    await putEntry(executor, "d1", "a", "a", 1);
     expect(await getRoomVersion(executor, "d1")).equal(1);
 
-    await putObject(executor, "d1", "b", "b", 2);
+    await putEntry(executor, "d1", "b", "b", 2);
     expect(await getRoomVersion(executor, "d1")).equal(2);
 
     // Resetting an existing key also affects getRoomVersion
-    await putObject(executor, "d1", "b", "b", 3);
+    await putEntry(executor, "d1", "b", "b", 3);
     expect(await getRoomVersion(executor, "d1")).equal(3);
 
     // Note: this means resetting a version *down* can have unexpected effects
     // Our code should never do this.
-    await putObject(executor, "d1", "b", "b", 1);
+    await putEntry(executor, "d1", "b", "b", 1);
     expect(await getRoomVersion(executor, "d1")).equal(1);
 
-    // delObject affects version too.
-    await delObject(executor, "d1", "a", 3);
+    // delEntry affects version too.
+    await delEntry(executor, "d1", "a", 3);
     expect(await getRoomVersion(executor, "d1")).equal(3);
 
     // Versions are per-room
-    await putObject(executor, "d2", "foo", "bar", 10);
+    await putEntry(executor, "d2", "foo", "bar", 10);
     expect(await getRoomVersion(executor, "d1")).equal(3);
     expect(await getRoomVersion(executor, "d2")).equal(10);
   });

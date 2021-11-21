@@ -8,7 +8,7 @@ import {
   ClientRecord,
   createDatabase,
   getRoomVersion,
-  getObject,
+  getEntry,
   mustGetClientRecord,
   setClientRecord,
 } from "./data";
@@ -220,7 +220,7 @@ test("stepRoom", async () => {
   // - no-op mutations that have already been processed
   // - skip mutations from the future
   // - write changes to passed executor:
-  //   - objects
+  //   - entries
   //   - clients (lmid, baseCookie)
   // - return appropriate pokes
   //
@@ -362,7 +362,7 @@ test("stepRoom", async () => {
       }));
       expect(res).to.deep.equal(expectedPokes, c.name);
 
-      const [v] = await getObject(executor, roomID, "log");
+      const [v] = await getEntry(executor, roomID, "log");
       const log = v ?? [];
       expect(log).to.deep.equal(c.expectedLog, c.name);
 

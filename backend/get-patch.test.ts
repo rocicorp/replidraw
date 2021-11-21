@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { setup, test } from "mocha";
 import { PatchOperation } from "replicache";
 import { Cookie } from "schemas/poke";
-import { createDatabase, putObject, delObject } from "./data";
+import { createDatabase, putEntry, delEntry } from "./data";
 import { withExecutor } from "./db";
 import { getPatch } from "./get-patch";
 
@@ -134,10 +134,11 @@ test("getPatch", async () => {
 
     for (const c of cases) {
       for (const p of c.puts || []) {
-        await putObject(executor, p.roomID, p.key, p.value, p.version);
+        await putEntry(executor, p.roomID, p.key, p.value, p.version);
+        delEntry;
       }
       for (const d of c.dels || []) {
-        await delObject(executor, d.roomID, d.key, d.version);
+        await delEntry(executor, d.roomID, d.key, d.version);
       }
       const patch = await getPatch(executor, c.roomID, c.fromCookie);
       expect(patch).to.deep.equal(c.expected);

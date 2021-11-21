@@ -168,7 +168,7 @@ export async function stepRoom(
   const t2 = Date.now();
   console.log(`Processed ${mutations.length} in ${t2 - t1}ms`);
 
-  // Flush changes to objects to the executor.
+  // Flush changes to entries to the executor.
   await tx.flush();
 
   // Calculate pokes.
@@ -203,7 +203,7 @@ export async function stepRoom(
 
 /**
  * Executes a single mutation against a room.
- * @param parentCache The object cache to read and write to.
+ * @param parentCache The cache to read and write to.
  * @param mutation The mutation to execute.
  * @param clientLastMutationID The last mutation ID executed by this client.
  * @param mutators All known mutators.

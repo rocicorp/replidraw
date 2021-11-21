@@ -1,5 +1,5 @@
 import { JSONValue } from "replicache";
-import { delObject, getObject, putObject } from "./data";
+import { delEntry, getEntry, putEntry } from "./data";
 import { Executor } from "./db";
 import type { Storage } from "./entry-cache";
 
@@ -18,13 +18,13 @@ export class DBStorage implements Storage {
   }
 
   async put(key: string, value: JSONValue): Promise<void> {
-    return putObject(this._executor, this._roomID, key, value, this._version);
+    return putEntry(this._executor, this._roomID, key, value, this._version);
   }
   async del(key: string): Promise<void> {
-    return delObject(this._executor, this._roomID, key, this._version);
+    return delEntry(this._executor, this._roomID, key, this._version);
   }
   async get(key: string): Promise<JSONValue | undefined> {
-    const [v] = await getObject(this._executor, this._roomID, key);
+    const [v] = await getEntry(this._executor, this._roomID, key);
     return v;
   }
 }

@@ -8,10 +8,10 @@ export async function getPatch(
 ): Promise<Patch> {
   const t0 = Date.now();
   const entries = await executor(
-    `select k, v, deleted from object where roomid = $1 and version > $2`,
+    `select k, v, deleted from entry where roomid = $1 and version > $2`,
     [roomID, fromCookie ?? 0]
   );
-  console.log(`Read ${entries.rows.length} objects in`, Date.now() - t0);
+  console.log(`Read ${entries.rows.length} entries in`, Date.now() - t0);
 
   const patch: Patch = [];
   for (let row of entries.rows) {
