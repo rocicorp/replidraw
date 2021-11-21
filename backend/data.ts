@@ -114,16 +114,32 @@ export async function setClientRecord(
 }
 
 /**
+ * Represents an entry in our key/value store. If the value is undefined then
+ * the value is logically deleted.
+ */
+export type Entry = {
+  value: JSONValue | undefined;
+  version: Version;
+};
+
+// TODO: Consider using a tuple type for Entry instead?
+export function entry(value: JSONValue | undefined, version: Version) {
+  return {
+    value,
+    version,
+  };
+}
+
+/**
  * Returns the value and version for some key in the database.
  *
- * Because the database implements delete with soft deletes, the value can be
- * undefined while the verison is > 0.
+ * Always returns an `Entry`. Caller must check if value === undefined.
  */
 export async function getEntry(
   executor: Executor,
   roomID: string,
   key: string
-): Promise<[JSONValue | undefined, Version]> {
+): Promise<Entry> {
   const {
     rows,
   } = await executor(
@@ -132,10 +148,13 @@ export async function getEntry(
   );
   const [row] = rows;
   if (!row) {
-    return [undefined, 0];
+    return { value: undefined, version: 0 };
   }
   const { v, deleted, version } = row;
-  return [deleted ? undefined : JSON.parse(v), version];
+  return {
+    value: deleted ? undefined : JSON.parse(v),
+    version,
+  };
 }
 
 export async function putEntry(

@@ -4,7 +4,7 @@ import { expect } from "chai";
 import { setup, test } from "mocha";
 import { EntryCache } from "./entry-cache";
 import { DBStorage } from "./db-storage";
-import { createDatabase } from "./data";
+import { createDatabase, entry } from "./data";
 
 setup(async () => {
   await withExecutor(async () => {
@@ -14,9 +14,9 @@ setup(async () => {
 
 test("ReplicacheTransaction", async () => {
   await transact(async (executor) => {
-    const storage = new DBStorage(executor, "c1", 1);
+    const storage = new DBStorage(executor, "c1");
     const entryCache = new EntryCache(storage);
-    const writeTx = new ReplicacheTransaction(entryCache, "c1");
+    const writeTx = new ReplicacheTransaction(entryCache, "c1", 1);
 
     expect(await writeTx.has("foo")).to.be.false;
     expect(await writeTx.get("foo")).to.be.undefined;
@@ -26,7 +26,11 @@ test("ReplicacheTransaction", async () => {
     expect(await writeTx.get("foo")).to.equal("bar");
 
     // They don't overlap until one flushes and the other is reloaded.
-    const writeTx2 = new ReplicacheTransaction(new EntryCache(storage), "c1");
+    const writeTx2 = new ReplicacheTransaction(
+      new EntryCache(storage),
+      "c1",
+      2
+    );
     expect(await writeTx2.has("foo")).to.be.false;
     expect(await writeTx2.get("foo")).to.be.undefined;
 
@@ -34,7 +38,7 @@ test("ReplicacheTransaction", async () => {
 
     // Go ahead and flush one
     await entryCache.flush();
-    const writeTx3 = new ReplicacheTransaction(entryCache, "c1");
+    const writeTx3 = new ReplicacheTransaction(entryCache, "c1", 3);
     expect(await writeTx3.has("foo")).to.be.true;
     expect(await writeTx3.get("foo")).to.equal("bar");
 

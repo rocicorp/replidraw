@@ -362,8 +362,8 @@ test("stepRoom", async () => {
       }));
       expect(res).to.deep.equal(expectedPokes, c.name);
 
-      const [v] = await getEntry(executor, roomID, "log");
-      const log = v ?? [];
+      const entry = await getEntry(executor, roomID, "log");
+      const log = entry.value ?? [];
       expect(log).to.deep.equal(c.expectedLog, c.name);
 
       for (const [clientID, state] of Object.entries(c.expectedClientState)) {
@@ -419,7 +419,7 @@ test("stepMutation", async () => {
 
   for (const [i, c] of cases.entries()) {
     await transact(async (executor) => {
-      const storage = new DBStorage(executor, "test", 1);
+      const storage = new DBStorage(executor, "test");
       const entryCache = new EntryCache(storage);
       const mutation: ClientMutation = {
         clientID: "c1",
@@ -446,10 +446,11 @@ test("stepMutation", async () => {
       const retVal = await stepMutation(
         entryCache,
         mutation,
+        1,
         cr.lastMutationID,
         mutators
       );
-      const changedVal = await entryCache.get("k");
+      const { value: changedVal } = await entryCache.get("k");
       expect(retVal).to.equal(c.expectReturn, c.name);
       expect(changedVal).to.equal(c.expectChange ? i : undefined, c.name);
     });

@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { setup, test } from "mocha";
+import { JSONValue } from "replicache";
 import {
   createDatabase,
   delEntry,
@@ -11,6 +12,8 @@ import {
   ClientRecord,
   mustGetClientRecord,
   mustGetClientRecords,
+  Version,
+  entry,
 } from "./data";
 import { withExecutor } from "./db";
 import { ClientID } from "./server";
@@ -23,22 +26,24 @@ setup(async () => {
 
 test("put/get/del", async () => {
   await withExecutor(async (executor) => {
-    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal([
-      undefined,
-      0,
-    ]);
+    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal(
+      entry(undefined, 0)
+    );
 
     await putEntry(executor, "doc1", "foo", "bar", 1);
-    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal(["bar", 1]);
+    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal(
+      entry("bar", 1)
+    );
 
     await putEntry(executor, "doc1", "foo", "baz", 2);
-    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal(["baz", 2]);
+    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal(
+      entry("baz", 2)
+    );
 
     await delEntry(executor, "doc1", "foo", 3);
-    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal([
-      undefined,
-      3,
-    ]);
+    expect(await getEntry(executor, "doc1", "foo")).to.deep.equal(
+      entry(undefined, 3)
+    );
   });
 });
 

@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { setup, test } from "mocha";
 import { EntryCache } from "./entry-cache";
 import { DBStorage } from "./db-storage";
-import { createDatabase, getEntry } from "./data";
+import { createDatabase, entry, getEntry } from "./data";
 
 setup(async () => {
   await withExecutor(async () => {
@@ -13,23 +13,25 @@ setup(async () => {
 
 test("EntryCache", async () => {
   await transact(async (executor) => {
-    const storage = new DBStorage(executor, "test", 1);
+    const storage = new DBStorage(executor, "test");
     const entryCache = new EntryCache(storage);
 
     expect(await entryCache.has("foo")).to.be.false;
-    expect(await entryCache.get("foo")).to.be.undefined;
+    expect(await entryCache.get("foo")).deep.equal(entry(undefined, 0));
 
-    await entryCache.put("foo", "bar");
+    await entryCache.put("foo", "bar", 1);
     expect(await entryCache.has("foo")).to.be.true;
-    expect(await entryCache.get("foo")).to.equal("bar");
+    expect(await entryCache.get("foo")).deep.equal(entry("bar", 1));
 
     // They don't overlap until one flushes and the other is reloaded.
     const entryCache2 = new EntryCache(storage);
     expect(await entryCache2.has("foo")).to.be.false;
-    expect(await entryCache2.get("foo")).to.be.undefined;
+    expect(await entryCache2.get("foo")).deep.equal(entry(undefined, 0));
 
     // They also don't show up in underlying storage.
-    expect(await getEntry(executor, "test", "foo")).deep.equal([undefined, 0]);
+    expect(await getEntry(executor, "test", "foo")).deep.equal(
+      entry(undefined, 0)
+    );
 
     // TODO: scan, isEmpty
 
@@ -37,20 +39,20 @@ test("EntryCache", async () => {
     await entryCache.flush();
     const entryCache3 = new EntryCache(storage);
     expect(await entryCache3.has("foo")).to.be.true;
-    expect(await entryCache3.get("foo")).to.equal("bar");
-    expect(await getEntry(executor, "test", "foo")).deep.equal(["bar", 1]);
+    expect(await entryCache3.get("foo")).deep.equal(entry("bar", 1));
+    expect(await getEntry(executor, "test", "foo")).deep.equal(entry("bar", 1));
 
     // stacking!
     const entryCache4 = new EntryCache(entryCache3);
-    await entryCache4.put("hot", "dog");
-    expect(await entryCache4.get("hot")).to.equal("dog");
+    await entryCache4.put("hot", "dog", 2);
+    expect(await entryCache4.get("hot")).deep.equal(entry("dog", 2));
 
     // If we don't flush, it doesn't show up in underlying storage
-    expect(await entryCache3.get("hot")).to.be.undefined;
+    expect(await entryCache3.get("hot")).deep.equal(entry(undefined, 0));
 
     // ... but as soon as we flush, it does.
     await entryCache4.flush();
-    expect(await entryCache3.get("hot")).to.equal("dog");
-    expect(await getEntry(executor, "test", "foo")).deep.equal(["bar", 1]);
+    expect(await entryCache3.get("hot")).deep.equal(entry("dog", 2));
+    expect(await getEntry(executor, "test", "foo")).deep.equal(entry("bar", 1));
   });
 });

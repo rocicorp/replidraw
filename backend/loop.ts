@@ -1,5 +1,10 @@
 import { Executor, transact } from "./db";
-import { setClientRecord, mustGetClientRecords, getRoomVersion } from "./data";
+import {
+  setClientRecord,
+  mustGetClientRecords,
+  getRoomVersion,
+  Version,
+} from "./data";
 import { Mutation } from "../schemas/push";
 import { ClientID, ClientMap } from "./server";
 import { sendPokes, ClientPokeResponse, computePokes } from "./poke";
@@ -156,11 +161,17 @@ export async function stepRoom(
 
   // Process mutations.
   const version = await getRoomVersion(executor, roomID);
-  const tx = new EntryCache(new DBStorage(executor, roomID, version + 1));
+  const tx = new EntryCache(new DBStorage(executor, roomID));
   const t1 = Date.now();
   for (const m of mutations) {
     const cr = affectedClientRecords.get(m.clientID)!;
-    const consumed = await stepMutation(tx, m, cr.lastMutationID, mutators);
+    const consumed = await stepMutation(
+      tx,
+      m,
+      version + 1,
+      cr.lastMutationID,
+      mutators
+    );
     if (consumed) {
       cr.lastMutationID = m.id;
     }
@@ -212,11 +223,12 @@ export async function stepRoom(
 export async function stepMutation(
   parentCache: EntryCache,
   mutation: ClientMutation,
+  version: Version,
   clientLastMutationID: number,
   mutators: Record<string, Function>
 ): Promise<boolean> {
   const cache = new EntryCache(parentCache);
-  const repTx = new ReplicacheTransaction(cache, mutation.clientID);
+  const repTx = new ReplicacheTransaction(cache, mutation.clientID, version);
   const expectedMutationID = clientLastMutationID + 1;
   if (mutation.id < expectedMutationID) {
     console.log(
