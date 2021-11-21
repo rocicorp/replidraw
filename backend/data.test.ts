@@ -3,7 +3,7 @@ import { setup, test } from "mocha";
 import {
   createDatabase,
   delObject,
-  getCookie,
+  getRoomVersion,
   getClientRecord,
   getObject,
   putObject,
@@ -103,34 +103,34 @@ test("mustGetClientRecords", async () => {
   });
 });
 
-test("getCookie", async () => {
+test("getRoomVersion", async () => {
   await withExecutor(async (executor) => {
     // The default cookie when there's no data in a room is zero.
-    expect(await getCookie(executor, "d1")).equal(0);
+    expect(await getRoomVersion(executor, "d1")).equal(0);
 
     // We always return the highest version on any row for the cookie
     await putObject(executor, "d1", "a", "a", 1);
-    expect(await getCookie(executor, "d1")).equal(1);
+    expect(await getRoomVersion(executor, "d1")).equal(1);
 
     await putObject(executor, "d1", "b", "b", 2);
-    expect(await getCookie(executor, "d1")).equal(2);
+    expect(await getRoomVersion(executor, "d1")).equal(2);
 
-    // Resetting an existing key also affects getCookie
+    // Resetting an existing key also affects getRoomVersion
     await putObject(executor, "d1", "b", "b", 3);
-    expect(await getCookie(executor, "d1")).equal(3);
+    expect(await getRoomVersion(executor, "d1")).equal(3);
 
     // Note: this means resetting a version *down* can have unexpected effects
     // Our code should never do this.
     await putObject(executor, "d1", "b", "b", 1);
-    expect(await getCookie(executor, "d1")).equal(1);
+    expect(await getRoomVersion(executor, "d1")).equal(1);
 
     // delObject affects version too.
     await delObject(executor, "d1", "a", 3);
-    expect(await getCookie(executor, "d1")).equal(3);
+    expect(await getRoomVersion(executor, "d1")).equal(3);
 
     // Versions are per-room
     await putObject(executor, "d2", "foo", "bar", 10);
-    expect(await getCookie(executor, "d1")).equal(3);
-    expect(await getCookie(executor, "d2")).equal(10);
+    expect(await getRoomVersion(executor, "d1")).equal(3);
+    expect(await getRoomVersion(executor, "d2")).equal(10);
   });
 });

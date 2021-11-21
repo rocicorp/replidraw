@@ -1,6 +1,7 @@
 // Our SQL-Level data model.
 
 import { JSONValue } from "replicache";
+import { Cookie } from "schemas/poke";
 import { Executor, transact } from "./db";
 import { ClientID } from "./server";
 
@@ -33,20 +34,25 @@ export async function createDatabase() {
 
 export type ClientRecord = {
   id: string;
-  baseCookie: number | null;
+  baseCookie: Cookie;
   lastMutationID: number;
   documentID: string;
 };
 
-export async function getCookie(
+// We use the term "cookie" when referring to the opaque value that
+// goes back and forth to the client. We use "version" when referring
+// to the per-room integer that we to calculate diffs and so-on.
+export type Version = number;
+
+export async function getRoomVersion(
   executor: Executor,
   docID: string
 ): Promise<number> {
   const result = await executor(
-    "select max(version) as cookie from object where documentid = $1",
+    "select max(version) as version from object where documentid = $1",
     [docID]
   );
-  return result.rows[0]?.cookie ?? 0;
+  return result.rows[0]?.version ?? 0;
 }
 
 export async function mustGetClientRecord(
@@ -117,7 +123,7 @@ export async function getObject(
   executor: Executor,
   documentID: string,
   key: string
-): Promise<[JSONValue | undefined, number]> {
+): Promise<[JSONValue | undefined, Version]> {
   const {
     rows,
   } = await executor(
@@ -137,7 +143,7 @@ export async function putObject(
   docID: string,
   key: string,
   value: JSONValue,
-  version: number
+  version: Version
 ): Promise<void> {
   await executor(
     `

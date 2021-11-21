@@ -1,5 +1,5 @@
 import { PokeResponse, Cookie, Patch } from "../schemas/poke";
-import { ClientRecord, getCookie } from "./data";
+import { ClientRecord, getRoomVersion } from "./data";
 import { Executor } from "./db";
 import { getPatch } from "./get-patch";
 import { ClientID, ClientMap } from "./server";
@@ -16,7 +16,7 @@ export async function computePokes(
   records: Map<ClientID, ClientRecord>
 ): Promise<ClientPokeResponse[]> {
   // Current cookie for this room.
-  const cookie = await getCookie(executor, roomID);
+  const cookie = await getRoomVersion(executor, roomID);
 
   // Typically every client will have same exact base cookie. Let's only compute the distinct patches we need to.
   const distinctBaseCookies = [

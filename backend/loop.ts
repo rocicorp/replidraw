@@ -1,10 +1,5 @@
 import { Executor, transact } from "./db";
-import {
-  setClientRecord,
-  ClientRecord,
-  mustGetClientRecords,
-  getCookie,
-} from "./data";
+import { setClientRecord, mustGetClientRecords, getRoomVersion } from "./data";
 import { Mutation } from "../schemas/push";
 import { ClientID, ClientMap } from "./server";
 import { sendPokes, ClientPokeResponse, computePokes } from "./poke";
@@ -160,7 +155,7 @@ export async function stepRoom(
   ]);
 
   // Process mutations.
-  const version = await getCookie(executor, roomID);
+  const version = await getRoomVersion(executor, roomID);
   const tx = new EntryCache(new DBStorage(executor, roomID, version + 1));
   const t1 = Date.now();
   for (const m of mutations) {
@@ -187,7 +182,7 @@ export async function stepRoom(
   console.log(`Computed pokes in ${t3 - t2}ms`);
 
   // Now we can get the new room cookie and update all the CRs
-  const roomCookie = await getCookie(executor, roomID);
+  const roomCookie = await getRoomVersion(executor, roomID);
   await Promise.all(
     [...affectedClientRecords.values()].map((cr) =>
       setClientRecord(executor, {

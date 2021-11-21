@@ -7,7 +7,7 @@ import { Cookie } from "../schemas/poke";
 import {
   ClientRecord,
   createDatabase,
-  getCookie,
+  getRoomVersion,
   getObject,
   mustGetClientRecord,
   setClientRecord,
@@ -342,7 +342,7 @@ test("stepRoom", async () => {
       );
 
       // Compute the expected pokes.
-      const roomCookie = await getCookie(executor, roomID);
+      const roomCookie = await getRoomVersion(executor, roomID);
       const expectedPokes: ClientPokeResponse[] = Object.entries(
         c.expectedClientState
       ).map(([clientID, state]) => ({
