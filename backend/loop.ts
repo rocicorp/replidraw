@@ -10,7 +10,7 @@ import { ClientID, ClientMap } from "./server";
 import { sendPokes, ClientPokeResponse, computePokes } from "./poke";
 import { EntryCache } from "./entry-cache";
 import { ReplicacheTransaction } from "./replicache-transaction";
-import { PostgresStorage } from "./postgres-storage";
+import { DBStorage } from "./db-storage";
 
 export type Now = typeof performance.now;
 export type Sleep = (ms: number) => Promise<void>;
@@ -160,7 +160,8 @@ export async function stepRoom(
   ]);
 
   // Process mutations.
-  const tx = new EntryCache(new PostgresStorage(executor, roomID));
+  const version = await getCookie(executor, roomID);
+  const tx = new EntryCache(new DBStorage(executor, roomID, version + 1));
   const t1 = Date.now();
   for (const m of mutations) {
     const cr = affectedClientRecords.get(m.clientID)!;

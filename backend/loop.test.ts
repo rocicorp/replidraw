@@ -3,7 +3,7 @@ import { test } from "mocha";
 import { WriteTransaction } from "replicache";
 import { Mutation } from "../schemas/push";
 import { JSONType } from "../schemas/json";
-import { Cookie, PokeResponse } from "../schemas/poke";
+import { Cookie } from "../schemas/poke";
 import {
   ClientRecord,
   createDatabase,
@@ -24,7 +24,7 @@ import {
   stepMutation,
   stepRoom,
 } from "./loop";
-import { PostgresStorage } from "./postgres-storage";
+import { DBStorage } from "./db-storage";
 import { Client, ClientID, ClientMap } from "./server";
 import { ClientPokeResponse } from "./poke";
 import { Response } from "schemas/network";
@@ -172,7 +172,7 @@ test("step", async () => {
       clients: clientMap(client("a", "r1", 1), client("b", "r2", 1)),
       expectedRecords: [
         clientRecord("a", "r1", 1, 1),
-        clientRecord("b", "r2", 2, 1),
+        clientRecord("b", "r2", 1, 1),
       ],
       expectedPending: new Map([
         ["a", []],
@@ -180,7 +180,7 @@ test("step", async () => {
       ]),
       expectedPokes: [
         clientPoke("a", null, 1, 1, [["a", 1]]),
-        clientPoke("b", null, 2, 1, [["b", 1]]),
+        clientPoke("b", null, 1, 1, [["b", 1]]),
       ],
     },
   ];
@@ -362,7 +362,8 @@ test("stepRoom", async () => {
       }));
       expect(res).to.deep.equal(expectedPokes, c.name);
 
-      const log = (await getObject(executor, roomID, "log")) ?? [];
+      const [v] = await getObject(executor, roomID, "log");
+      const log = v ?? [];
       expect(log).to.deep.equal(c.expectedLog, c.name);
 
       for (const [clientID, state] of Object.entries(c.expectedClientState)) {
@@ -418,7 +419,7 @@ test("stepMutation", async () => {
 
   for (const [i, c] of cases.entries()) {
     await transact(async (executor) => {
-      const storage = new PostgresStorage(executor, "test");
+      const storage = new DBStorage(executor, "test", 1);
       const entryCache = new EntryCache(storage);
       const mutation: ClientMutation = {
         clientID: "c1",

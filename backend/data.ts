@@ -9,7 +9,6 @@ export async function createDatabase() {
     // TODO: Proper versioning for schema.
     await executor("drop table if exists client cascade");
     await executor("drop table if exists object cascade");
-    await executor("drop sequence if exists version");
 
     await executor(`create table client (
       id varchar(100) primary key not null,
@@ -29,8 +28,6 @@ export async function createDatabase() {
     await executor(`create index on object (documentid)`);
     await executor(`create index on object (deleted)`);
     await executor(`create index on object (version)`);
-
-    await executor(`create sequence version`);
   });
 }
 
@@ -110,63 +107,59 @@ export async function setClientRecord(
   );
 }
 
+/**
+ * Returns the value and version for some key in the database.
+ *
+ * Because the database implements delete with soft deletes, the value can be
+ * undefined while the verison is > 0.
+ */
 export async function getObject(
   executor: Executor,
   documentID: string,
   key: string
-): Promise<JSONValue | undefined> {
+): Promise<[JSONValue | undefined, number]> {
   const {
     rows,
   } = await executor(
-    "select v from object where documentid = $1 and k = $2 and deleted = false",
+    "select v, deleted, version from object where documentid = $1 and k = $2",
     [documentID, key]
   );
-  const value = rows[0]?.v;
-  if (!value) {
-    return undefined;
+  const [row] = rows;
+  if (!row) {
+    return [undefined, 0];
   }
-  return JSON.parse(value);
+  const { v, deleted, version } = row;
+  return [deleted ? undefined : JSON.parse(v), version];
 }
 
 export async function putObject(
   executor: Executor,
   docID: string,
   key: string,
-  value: JSONValue
+  value: JSONValue,
+  version: number
 ): Promise<void> {
   await executor(
     `
     insert into object (documentid, k, v, deleted, version)
-    values ($1, $2, $3, false, nextval('version'))
-      on conflict (documentid, k) do update set v = $3, deleted = false, version = nextval('version')
+    values ($1, $2, $3, false, $4)
+      on conflict (documentid, k) do update set v = $3, deleted = false, version = $4
     `,
-    [docID, key, JSON.stringify(value)]
+    [docID, key, JSON.stringify(value), version]
   );
 }
 
 export async function delObject(
   executor: Executor,
   docID: string,
-  key: string
-): Promise<void> {
-  await executor(
-    `
-    update object set deleted = true, version = nextval('version')
-    where documentid = $1 and k = $2
-  `,
-    [docID, key]
-  );
-}
-
-// Mainly for testing
-export async function setVersion(
-  executor: Executor,
-  documentID: string,
   key: string,
   version: number
 ): Promise<void> {
   await executor(
-    `update object set version = $3 where documentid = $1 and k = $2`,
-    [documentID, key, version]
+    `
+    update object set deleted = true, version = $3
+    where documentid = $1 and k = $2
+  `,
+    [docID, key, version]
   );
 }

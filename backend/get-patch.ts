@@ -1,5 +1,4 @@
 import { Patch, Cookie } from "schemas/poke";
-import { getCookie } from "./data";
 import { Executor } from "./db";
 
 export async function getPatch(

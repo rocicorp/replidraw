@@ -3,7 +3,7 @@ import { transact, withExecutor } from "./db";
 import { expect } from "chai";
 import { setup, test } from "mocha";
 import { EntryCache } from "./entry-cache";
-import { PostgresStorage } from "./postgres-storage";
+import { DBStorage } from "./db-storage";
 import { createDatabase } from "./data";
 
 setup(async () => {
@@ -14,7 +14,7 @@ setup(async () => {
 
 test("ReplicacheTransaction", async () => {
   await transact(async (executor) => {
-    const storage = new PostgresStorage(executor, "c1");
+    const storage = new DBStorage(executor, "c1", 1);
     const entryCache = new EntryCache(storage);
     const writeTx = new ReplicacheTransaction(entryCache, "c1");
 

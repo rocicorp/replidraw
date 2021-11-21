@@ -2,7 +2,7 @@ import { transact, withExecutor } from "./db";
 import { expect } from "chai";
 import { setup, test } from "mocha";
 import { EntryCache } from "./entry-cache";
-import { PostgresStorage } from "./postgres-storage";
+import { DBStorage } from "./db-storage";
 import { createDatabase, getObject } from "./data";
 
 setup(async () => {
@@ -13,7 +13,7 @@ setup(async () => {
 
 test("EntryCache", async () => {
   await transact(async (executor) => {
-    const storage = new PostgresStorage(executor, "test");
+    const storage = new DBStorage(executor, "test", 1);
     const entryCache = new EntryCache(storage);
 
     expect(await entryCache.has("foo")).to.be.false;
@@ -29,7 +29,7 @@ test("EntryCache", async () => {
     expect(await entryCache2.get("foo")).to.be.undefined;
 
     // They also don't show up in underlying storage.
-    expect(await getObject(executor, "test", "foo")).to.be.undefined;
+    expect(await getObject(executor, "test", "foo")).deep.equal([undefined, 0]);
 
     // TODO: scan, isEmpty
 
@@ -38,7 +38,7 @@ test("EntryCache", async () => {
     const entryCache3 = new EntryCache(storage);
     expect(await entryCache3.has("foo")).to.be.true;
     expect(await entryCache3.get("foo")).to.equal("bar");
-    expect(await getObject(executor, "test", "foo")).equal("bar");
+    expect(await getObject(executor, "test", "foo")).deep.equal(["bar", 1]);
 
     // stacking!
     const entryCache4 = new EntryCache(entryCache3);
@@ -51,5 +51,6 @@ test("EntryCache", async () => {
     // ... but as soon as we flush, it does.
     await entryCache4.flush();
     expect(await entryCache3.get("hot")).to.equal("dog");
+    expect(await getObject(executor, "test", "foo")).deep.equal(["bar", 1]);
   });
 });

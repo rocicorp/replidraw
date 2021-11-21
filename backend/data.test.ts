@@ -23,16 +23,22 @@ setup(async () => {
 
 test("put/get/del", async () => {
   await withExecutor(async (executor) => {
-    expect(await getObject(executor, "doc1", "foo")).to.be.undefined;
+    expect(await getObject(executor, "doc1", "foo")).to.deep.equal([
+      undefined,
+      0,
+    ]);
 
-    await putObject(executor, "doc1", "foo", "bar");
-    expect(await getObject(executor, "doc1", "foo")).to.equal("bar");
+    await putObject(executor, "doc1", "foo", "bar", 1);
+    expect(await getObject(executor, "doc1", "foo")).to.deep.equal(["bar", 1]);
 
-    await putObject(executor, "doc1", "foo", "baz");
-    expect(await getObject(executor, "doc1", "foo")).to.equal("baz");
+    await putObject(executor, "doc1", "foo", "baz", 2);
+    expect(await getObject(executor, "doc1", "foo")).to.deep.equal(["baz", 2]);
 
-    await delObject(executor, "doc1", "foo");
-    expect(await getObject(executor, "doc1", "foo")).to.be.undefined;
+    await delObject(executor, "doc1", "foo", 3);
+    expect(await getObject(executor, "doc1", "foo")).to.deep.equal([
+      undefined,
+      3,
+    ]);
   });
 });
 
@@ -99,27 +105,32 @@ test("mustGetClientRecords", async () => {
 
 test("getCookie", async () => {
   await withExecutor(async (executor) => {
-    const cookie0 = await getCookie(executor, "d1");
-    expect(cookie0).equal(0);
+    // The default cookie when there's no data in a room is zero.
+    expect(await getCookie(executor, "d1")).equal(0);
 
-    await putObject(executor, "d1", "foo", "bar");
-    const cookie1 = await getCookie(executor, "d1");
-    // We don't necessarily expect the very next number because putObject() can
-    // call nextval('version') twice. In general, we only care that version
-    // ticks up, not by how much.
-    expect(cookie1).is.greaterThan(cookie0);
+    // We always return the highest version on any row for the cookie
+    await putObject(executor, "d1", "a", "a", 1);
+    expect(await getCookie(executor, "d1")).equal(1);
 
-    await putObject(executor, "d1", "foo", "baz");
-    const cookie2 = await getCookie(executor, "d1");
-    expect(cookie2).is.greaterThan(cookie1);
+    await putObject(executor, "d1", "b", "b", 2);
+    expect(await getCookie(executor, "d1")).equal(2);
 
-    await delObject(executor, "d1", "foo");
-    const cookie3 = await getCookie(executor, "d1");
-    expect(cookie3).is.greaterThan(cookie2);
+    // Resetting an existing key also affects getCookie
+    await putObject(executor, "d1", "b", "b", 3);
+    expect(await getCookie(executor, "d1")).equal(3);
 
-    // Different documents don't affect each others' cookies.
-    await putObject(executor, "d2", "foo", "baz");
-    const cookie3Also = await getCookie(executor, "d1");
-    expect(cookie3Also).equal(cookie3);
+    // Note: this means resetting a version *down* can have unexpected effects
+    // Our code should never do this.
+    await putObject(executor, "d1", "b", "b", 1);
+    expect(await getCookie(executor, "d1")).equal(1);
+
+    // delObject affects version too.
+    await delObject(executor, "d1", "a", 3);
+    expect(await getCookie(executor, "d1")).equal(3);
+
+    // Versions are per-room
+    await putObject(executor, "d2", "foo", "bar", 10);
+    expect(await getCookie(executor, "d1")).equal(3);
+    expect(await getCookie(executor, "d2")).equal(10);
   });
 });
