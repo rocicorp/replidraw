@@ -4,6 +4,7 @@ import {
   mustGetClientRecords,
   getRoomVersion,
   Version,
+  ClientRecord,
 } from "./data";
 import { Mutation } from "../schemas/push";
 import { ClientID, ClientMap } from "./server";
@@ -165,16 +166,7 @@ export async function stepRoom(
   const t1 = Date.now();
   for (const m of mutations) {
     const cr = affectedClientRecords.get(m.clientID)!;
-    const consumed = await stepMutation(
-      tx,
-      m,
-      version + 1,
-      cr.lastMutationID,
-      mutators
-    );
-    if (consumed) {
-      cr.lastMutationID = m.id;
-    }
+    await stepMutation(tx, m, version + 1, mutators, affectedClientRecords);
   }
   const t2 = Date.now();
   console.log(`Processed ${mutations.length} in ${t2 - t1}ms`);
@@ -214,45 +206,63 @@ export async function stepRoom(
 
 /**
  * Executes a single mutation against a room.
- * @param parentCache The cache to read and write to.
+ *
+ * @param parentCache The cache to write the tx to.
  * @param mutation The mutation to execute.
- * @param clientLastMutationID The last mutation ID executed by this client.
+ * @param version The version for any entries written.
  * @param mutators All known mutators.
- * @returns True if the mutation was processed, false otherwise.
+ * @param clientRecords All client records for this room.
+ *
+ * At exit, the lmid of the corresponding clientRecord will have been
+ * modified to reflect this mutation running.
  */
 export async function stepMutation(
   parentCache: EntryCache,
   mutation: ClientMutation,
-  version: Version,
-  clientLastMutationID: number,
-  mutators: Record<string, Function>
-): Promise<boolean> {
+  version: number,
+  mutators: Record<string, Function>,
+  clientRecords: Map<ClientID, ClientRecord>
+): Promise<void> {
+  const clientRecord = clientRecords.get(mutation.clientID);
+  if (!clientRecord) {
+    throw new Error(
+      `ClientRecord not found for mutation: ${mutation.clientID}`
+    );
+  }
+
   const cache = new EntryCache(parentCache);
   const repTx = new ReplicacheTransaction(cache, mutation.clientID, version);
-  const expectedMutationID = clientLastMutationID + 1;
+
+  const expectedMutationID = clientRecord.lastMutationID + 1;
   if (mutation.id < expectedMutationID) {
     console.log(
       `Mutation ${mutation.id} has already been processed - skipping`
     );
-    return false;
+    return;
   }
   if (mutation.id > expectedMutationID) {
     console.warn(
       `Mutation ${mutation.id} is out of order - expected ${expectedMutationID} - skipping`
     );
-    return false;
+    return;
   }
 
   console.log(`Processing mutation ${JSON.stringify(mutation)}`);
   const mutator = mutators[mutation.name]!;
-  try {
-    await mutator(repTx, mutation.args);
-  } catch (e) {
-    console.error(`Error executing mutator: ${JSON.stringify(mutator)}: ${e}`);
+  if (!mutator) {
+    console.warn(`Mutator not found: ${mutation.name}`);
+  } else {
+    try {
+      await mutator(repTx, mutation.args);
+    } catch (e) {
+      console.error(
+        `Error executing mutator: ${JSON.stringify(mutator)}: ${e}`
+      );
+    }
   }
 
   await cache.flush();
-  return true;
+  clientRecord.lastMutationID = expectedMutationID;
 }
 
 /**

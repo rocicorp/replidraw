@@ -381,39 +381,67 @@ test("stepMutation", async () => {
   type Case = {
     name: string;
     mutationID: number;
-    expectReturn: boolean;
+    expectUpdateLMID: boolean;
     expectChange: boolean;
-    throws: boolean;
+    mutationThrows: boolean;
+    mutatorMissing: boolean;
+    clientRecordMissing: boolean;
   };
 
   const cases: Case[] = [
     {
       name: "mutation already processed",
       mutationID: 42,
-      expectReturn: false,
+      expectUpdateLMID: false,
       expectChange: false,
-      throws: false,
+      mutationThrows: false,
+      mutatorMissing: false,
+      clientRecordMissing: false,
     },
     {
       name: "mutation out of order",
       mutationID: 44,
-      expectReturn: false,
+      expectUpdateLMID: false,
       expectChange: false,
-      throws: false,
+      mutationThrows: false,
+      mutatorMissing: false,
+      clientRecordMissing: false,
     },
     {
       name: "mutation throws",
       mutationID: 43,
-      expectReturn: true,
+      expectUpdateLMID: true,
       expectChange: false,
-      throws: true,
+      mutationThrows: true,
+      mutatorMissing: false,
+      clientRecordMissing: false,
     },
     {
       name: "mutation suceeds",
       mutationID: 43,
-      expectReturn: true,
+      expectUpdateLMID: true,
       expectChange: true,
-      throws: false,
+      mutationThrows: false,
+      mutatorMissing: false,
+      clientRecordMissing: false,
+    },
+    {
+      name: "mutator missing",
+      mutationID: 43,
+      expectUpdateLMID: true,
+      expectChange: false,
+      mutationThrows: false,
+      mutatorMissing: true,
+      clientRecordMissing: false,
+    },
+    {
+      name: "client record missing",
+      mutationID: 43,
+      expectUpdateLMID: false,
+      expectChange: false,
+      mutationThrows: false,
+      mutatorMissing: false,
+      clientRecordMissing: true,
     },
   ];
 
@@ -434,24 +462,39 @@ test("stepMutation", async () => {
         id: "c1",
         lastMutationID: 42,
       };
-      const mutators = {
+      const mutators: Record<string, Function> = {
         a: (tx: WriteTransaction, args: JSONType) => {
-          if (c.throws) {
+          if (c.mutationThrows) {
             throw new Error("bonk");
           }
           tx.put("k", args);
         },
       };
+      if (c.mutatorMissing) {
+        delete mutators.a;
+      }
 
-      const retVal = await stepMutation(
-        entryCache,
-        mutation,
-        1,
-        cr.lastMutationID,
-        mutators
-      );
+      const clientRecords = new Map<ClientID, ClientRecord>();
+      if (!c.clientRecordMissing) {
+        clientRecords.set(cr.id, cr);
+      }
+
+      let err = null;
+      try {
+        await stepMutation(entryCache, mutation, 1, mutators, clientRecords);
+      } catch (e) {
+        err = e;
+      }
+      if (c.clientRecordMissing) {
+        expect(String(err)).contains("ClientRecord not found for mutation: c1");
+      } else {
+        expect(err).null;
+      }
+
       const { value: changedVal } = await entryCache.get("k");
-      expect(retVal).to.equal(c.expectReturn, c.name);
+      if (c.expectUpdateLMID) {
+        expect(cr.lastMutationID).equal(c.mutationID);
+      }
       expect(changedVal).to.equal(c.expectChange ? i : undefined, c.name);
     });
   }
