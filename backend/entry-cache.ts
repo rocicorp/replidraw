@@ -1,4 +1,6 @@
 import type { JSONValue } from "replicache";
+import { JSONType } from "schemas/json";
+import { Patch } from "schemas/poke";
 import { Entry, Version } from "./data";
 
 export interface Storage {
@@ -41,6 +43,21 @@ export class EntryCache implements Storage {
   async has(key: string): Promise<boolean> {
     const entry = await this.get(key);
     return entry.value !== undefined;
+  }
+
+  pending(): Patch {
+    const res: Patch = [];
+    for (const [key, { entry, dirty }] of this._cache.entries()) {
+      const { value } = entry;
+      if (dirty) {
+        if (value === undefined) {
+          res.push({ op: "del", key });
+        } else {
+          res.push({ op: "put", key, value: value as JSONType });
+        }
+      }
+    }
+    return res;
   }
 
   async flush(): Promise<void> {

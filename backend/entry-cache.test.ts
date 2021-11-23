@@ -56,3 +56,73 @@ test("EntryCache", async () => {
     expect(await getEntry(executor, "test", "foo")).deep.equal(entry("bar", 1));
   });
 });
+
+test("pending", async () => {
+  await transact(async (executor) => {
+    const storage = new DBStorage(executor, "test");
+    const entryCache = new EntryCache(storage);
+    expect(entryCache.pending()).deep.equal([]);
+
+    entryCache.put("foo", "bar", 1);
+    expect(entryCache.pending()).deep.equal([
+      {
+        op: "put",
+        key: "foo",
+        value: "bar",
+      },
+    ]);
+
+    // change the value at a key, should still have one entry in patch
+    entryCache.put("foo", "baz", 1);
+    expect(entryCache.pending()).deep.equal([
+      {
+        op: "put",
+        key: "foo",
+        value: "baz",
+      },
+    ]);
+
+    // don't change anything, just reset
+    entryCache.put("foo", "baz", 1);
+    expect(entryCache.pending()).deep.equal([
+      {
+        op: "put",
+        key: "foo",
+        value: "baz",
+      },
+    ]);
+
+    // change only version
+    entryCache.put("foo", "qux", 2);
+    expect(entryCache.pending()).deep.equal([
+      {
+        op: "put",
+        key: "foo",
+        value: "qux",
+      },
+    ]);
+
+    // change only version
+    entryCache.del("foo", 2);
+    expect(entryCache.pending()).deep.equal([
+      {
+        op: "del",
+        key: "foo",
+      },
+    ]);
+
+    // change only version
+    entryCache.put("hot", "dog", 2);
+    expect(entryCache.pending()).deep.equal([
+      {
+        op: "del",
+        key: "foo",
+      },
+      {
+        op: "put",
+        key: "hot",
+        value: "dog",
+      },
+    ]);
+  });
+});
