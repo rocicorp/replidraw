@@ -1,36 +1,31 @@
-step(connectedClients, mutators, startTimestamp)
-- get pending mutations
-- sort by room
-- open tx
-- get version for room
-- get initial patch for connected clients
-- get all the affected client records
-- step each affected room (accumulating a set of patches, mutating records)
-- commit tx
+step(connectedClients, mutators, startTimestamp) => void
+- tx:
+  - get mutations by room
+  - step each room, accumulating pokes
+- remove processed mutations from pending
 - send pokes
 
-stepRoom(cache, version, mutations, mutators, clientRecords, startTimestamp)
-- split mutations into frames
-- for each frame:
-  - step frame
-  - accumulate patches
-- return [version, patches]
+stepRoom(mutations, mutators, startTimestamp, executor, pokees) => pokes
+- load all affected client records
+- get any required catchup pokes
+- create cache
+- split mutations into frames per startTimestamp
+- execute each frame, accumulating pokes
+- return pokes
 
-stepFrame(cache, version, mutations, mutators, clientRecords)
-- create child cache
-xxx ack this cache has to have its own version so the cookies work
-xxx need to fix
-- for each mutation:
-  - stepMutation
-- get patch from cache
-- return patch
+stepFrame(mutations, mutators, cache, version, clientRecords, pokees) => pokes
+- create child cache (so can get patch)
+- step all mutations
+- get patch
+- return pokes for everyone in room
 
-stepMutation(cache, mutation, mutators, clientRecord)
-- run mutation
-- update record as necessary
-
+stepMutation(mutation, mutators, cache, version, clientRecords)
+- create child cache (so can rollback)
+- exec
+- mutate relevant cr and cookies (little wasteful but easier to reason about)
 
 
+====
 
 
 - collect mutations to run
