@@ -31,3 +31,22 @@ export async function getPatch(
   }
   return patch;
 }
+
+export async function getPatches(
+  executor: Executor,
+  roomID: string,
+  fromCookies: Set<Cookie>
+): Promise<Map<Cookie, Patch>> {
+  // Calculate all distinct patches in parallel.
+  return new Map(
+    await Promise.all(
+      [...fromCookies].map(
+        async (baseCookie) =>
+          [baseCookie, await getPatch(executor, roomID, baseCookie)] as [
+            Cookie,
+            Patch
+          ]
+      )
+    )
+  );
+}

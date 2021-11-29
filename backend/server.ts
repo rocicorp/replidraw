@@ -48,7 +48,7 @@ app.prepare().then(() => {
     new Promise<void>((resolve) => setTimeout(resolve, ms));
 
   const loop = new Loop(
-    async () => await step(clients, mutators),
+    async () => await step(clients, mutators, performance.now()),
     performance.now,
     sleep,
     50

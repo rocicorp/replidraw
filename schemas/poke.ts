@@ -28,6 +28,7 @@ export const pokeResponseSchema = z.object({
   cookie: cookieSchema,
   lastMutationID: z.number(),
   patch: patchSchema,
+  timestamp: z.number(),
 });
 
 export type Cookie = z.infer<typeof cookieSchema>;

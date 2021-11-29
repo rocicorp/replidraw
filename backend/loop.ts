@@ -3,15 +3,16 @@ import {
   setClientRecord,
   mustGetClientRecords,
   getRoomVersion,
-  Version,
   ClientRecord,
 } from "./data";
 import { Mutation } from "../schemas/push";
 import { ClientID, ClientMap } from "./server";
-import { sendPokes, ClientPokeResponse, computePokes } from "./poke";
+import { sendPokes, ClientPokeResponse } from "./poke";
 import { EntryCache } from "./entry-cache";
 import { ReplicacheTransaction } from "./replicache-transaction";
 import { DBStorage } from "./db-storage";
+import { Patch } from "schemas/poke";
+import { getPatches } from "./get-patch";
 
 export type Now = typeof performance.now;
 export type Sleep = (ms: number) => Promise<void>;
@@ -20,6 +21,8 @@ export type RoomID = string;
 
 // Returns false when there is no more work to do.
 export type Step = () => Promise<void>;
+
+const FRAME_LENGTH_MS = 16;
 
 /**
  * A game loop that runs some `Step` function periodically until the step has
@@ -68,15 +71,16 @@ export class Loop {
 }
 
 /**
- * Advances the game loop one step by running all mutations in all rooms that
- * are ready and sending out the relevant pokes on the coresponding Clients.
+ * Advances the game loop one step by running all mutations currently ready
+ * in all rooms. Sends out pokes to currently connected clients.
  *
  * @param clients All currently connected clients.
  * @param mutators All known mutators.
  */
 export async function step(
   clients: ClientMap,
-  mutators: Record<string, Function>
+  mutators: Record<string, Function>,
+  startTimestamp: number
 ): Promise<void> {
   const t0 = Date.now();
 
@@ -97,7 +101,8 @@ export async function step(
           mutators,
           [...clients.values()]
             .filter((c) => c.roomID == roomID)
-            .map((c) => c.clientID)
+            .map((c) => c.clientID),
+          startTimestamp
         ))
       );
     }
@@ -120,7 +125,7 @@ export async function step(
 }
 
 /**
- * Advances a single room forward by executing a set of mutations against it.
+ * Advances a single room by executing a set of mutations against it.
  *
  * @param executor A database executor to read and write to.
  * @param roomID The room to step.
@@ -134,7 +139,8 @@ export async function stepRoom(
   roomID: string,
   mutations: ClientMutation[],
   mutators: Record<string, Function>,
-  connectedClients: ClientID[]
+  connectedClients: ClientID[],
+  startTimestamp: number
 ): Promise<ClientPokeResponse[]> {
   const t0 = Date.now();
 
@@ -149,8 +155,8 @@ export async function stepRoom(
   // Load records for affected clients.
   // We need the records for all clients who sent mutations even if they are no longer connected,
   // because we still need to execute those mutations.
-  // We need the clients for everyone in the room, even if they didn't send a message, because we
-  // need to send them pokes.
+  // We need the records for everyone connected, even if they didn't send any message, because we
+  // need to send them pokes and record their new cookie.
   const affectedClientsIDs = new Set([
     ...mutations.map((m) => m.clientID),
     ...connectedClients,
@@ -160,29 +166,63 @@ export async function stepRoom(
     ...affectedClientsIDs,
   ]);
 
+  let version = await getRoomVersion(executor, roomID);
+
+  const initialPatches = await getPatches(
+    executor,
+    roomID,
+    new Set([
+      ...connectedClients.map(
+        (id) => affectedClientRecords.get(id)!.baseCookie
+      ),
+    ])
+  );
+
   // Process mutations.
-  const version = await getRoomVersion(executor, roomID);
-  const tx = new EntryCache(new DBStorage(executor, roomID));
+  const cache = new EntryCache(new DBStorage(executor, roomID));
   const t1 = Date.now();
-  for (const m of mutations) {
-    const cr = affectedClientRecords.get(m.clientID)!;
-    await stepMutation(tx, m, version + 1, mutators, affectedClientRecords);
+  const frames = getFrames(mutations, FRAME_LENGTH_MS, startTimestamp);
+
+  const patches: Patch[] = [];
+  for (const frame of frames) {
+    version++;
+    const patch = await stepFrame(
+      cache,
+      frame,
+      version,
+      mutators,
+      affectedClientRecords
+    );
+    patches.push(patch);
   }
+
   const t2 = Date.now();
   console.log(`Processed ${mutations.length} in ${t2 - t1}ms`);
 
-  // Flush changes to entries to the executor.
-  await tx.flush();
+  const pokes: ClientPokeResponse[] = [];
+  for (const [i, patch] of patches.entries()) {
+    for (const clientID of connectedClients) {
+      const cr = affectedClientRecords.get(clientID)!;
+      const poke: ClientPokeResponse = {
+        clientID,
+        poke: {
+          lastMutationID: cr.lastMutationID,
+          baseCookie: cr.baseCookie,
+          cookie: version + i,
+          patch: [],
+          timestamp: startTimestamp + i * FRAME_LENGTH_MS,
+        },
+      };
+      if (i === 0) {
+        const initialPatch = initialPatches.get(cr.baseCookie)!;
+        poke.poke.patch.push(...initialPatch);
+      }
+      poke.poke.patch.push(...patch);
+    }
+  }
 
-  // Calculate pokes.
-  const pokes = await computePokes(
-    executor,
-    roomID,
-    connectedClients,
-    affectedClientRecords
-  );
-  const t3 = Date.now();
-  console.log(`Computed pokes in ${t3 - t2}ms`);
+  // Flush changes to entries to the executor.
+  await cache.flush();
 
   // Now we can get the new room cookie and update all the CRs
   const roomCookie = await getRoomVersion(executor, roomID);
@@ -195,13 +235,37 @@ export async function stepRoom(
     )
   );
 
-  const t4 = Date.now();
-  console.log(`Flushed changes in ${t4 - t3}ms`);
+  const t3 = Date.now();
+  console.log(`Flushed changes in ${t3 - t2}ms`);
 
-  const elapsed = t4 - t0;
+  const elapsed = t3 - t0;
   console.log(`Completed stepRoom in ${elapsed}ms`);
 
   return pokes;
+}
+
+/**
+ * Executes a set of mutations against the cache.
+ * @param cache
+ * @param mutations
+ * @param version
+ * @param mutators
+ * @param clientRecords
+ */
+export async function stepFrame(
+  parentCache: EntryCache,
+  mutations: ClientMutation[],
+  version: number,
+  mutators: Record<string, Function>,
+  clientRecords: Map<ClientID, ClientRecord>
+): Promise<Patch> {
+  const cache = new EntryCache(parentCache);
+  for (const m of mutations) {
+    await stepMutation(cache, m, version, mutators, clientRecords);
+  }
+  const patch = cache.pending();
+  await cache.flush();
+  return patch;
 }
 
 /**
@@ -213,8 +277,9 @@ export async function stepRoom(
  * @param mutators All known mutators.
  * @param clientRecords All client records for this room.
  *
- * At exit, the lmid of the corresponding clientRecord will have been
- * modified to reflect this mutation running.
+ * At exit:
+ * - parentCache will have been modified by [[mutation]].
+ * - the lmid of the responsible client will have been adjusted as necessary.
  */
 export async function stepMutation(
   parentCache: EntryCache,
@@ -267,6 +332,11 @@ export async function stepMutation(
 
 /**
  * Gets all ready mutations and returns them grouped by room.
+ *
+ * Note: the returned map and arrays are a copy and are not
+ * mutated after return from this method. The `Client` objects
+ * themselves are references, however, and may change.
+ *
  * @param clients Clients to get mutations from.
  * @returns
  */
@@ -292,6 +362,20 @@ export function getPendingMutationsByRoom(
     );
   }
   return res;
+}
+
+export function getFrames(
+  mutations: ClientMutation[],
+  frameLengthMs: number,
+  startTimestamp: number
+): ClientMutation[][] {
+  const frames: ClientMutation[][] = [];
+  for (const m of mutations) {
+    const frameNum = Math.max(0, m.timestamp - startTimestamp) / frameLengthMs;
+    const frame = frames[frameNum] ?? frames[frames.push([]) - 1];
+    frame.push(m);
+  }
+  return frames;
 }
 
 /**
