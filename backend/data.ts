@@ -107,3 +107,6 @@ export async function delObject(
     [roomID, key]
   );
 }
+
+export const userPrefix = "user/";
+export const userKey = (k: string) => `${userPrefix}${k}`;

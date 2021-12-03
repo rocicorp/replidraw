@@ -1,5 +1,5 @@
 import type { JSONValue, ScanResult, WriteTransaction } from "replicache";
-import { delObject, getObject, putObject } from "./data";
+import { delObject, getObject, putObject, userKey } from "./data";
 import { Executor } from "./pg";
 
 /**
@@ -38,7 +38,7 @@ export class WriteTransactionImpl implements WriteTransaction {
     if (entry) {
       return entry.value;
     }
-    const value = await getObject(this._executor, this._roomID, key);
+    const value = await getObject(this._executor, this._roomID, userKey(key));
     this._cache.set(key, { value, dirty: false });
     return value;
   }
@@ -64,9 +64,9 @@ export class WriteTransactionImpl implements WriteTransaction {
         .filter(([, { dirty }]) => dirty)
         .map(([k, { value }]) => {
           if (value === undefined) {
-            return delObject(this._executor, this._roomID, k);
+            return delObject(this._executor, this._roomID, userKey(k));
           } else {
-            return putObject(this._executor, this._roomID, k, value);
+            return putObject(this._executor, this._roomID, userKey(k), value);
           }
         })
     );

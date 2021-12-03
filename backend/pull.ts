@@ -1,5 +1,5 @@
 import { transact } from "./pg";
-import { getCookie, getLastMutationID } from "./data";
+import { getCookie, getLastMutationID, userPrefix } from "./data";
 import { QueryResult } from "pg";
 import { PullRequest, PullResponse } from "../schemas/pull";
 import WebSocket from "ws";
@@ -46,7 +46,8 @@ export async function handlePullRequest(
   };
 
   for (let row of entries.rows) {
-    const { key, value, deleted } = row;
+    const { key: keyWithPrefix, value, deleted } = row;
+    const key = keyWithPrefix.substring(userPrefix.length);
     if (deleted) {
       pullRes.patch.push({
         op: "del",
