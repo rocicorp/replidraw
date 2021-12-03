@@ -23,7 +23,7 @@ export async function handlePullRequest(
   await transact(async (executor) => {
     [entries, lastMutationID, responseCookie] = await Promise.all([
       executor(
-        `select k, v, deleted from object
+        `select key, value, deleted from object
         where roomid = $1 and lastmodified > to_timestamp($2 ::decimal)`,
         [roomID, requestCookie]
       ),
@@ -46,17 +46,17 @@ export async function handlePullRequest(
   };
 
   for (let row of entries.rows) {
-    const { k, v, deleted } = row;
+    const { key, value, deleted } = row;
     if (deleted) {
       pullRes.patch.push({
         op: "del",
-        key: k,
+        key: key,
       });
     } else {
       pullRes.patch.push({
         op: "put",
-        key: k,
-        value: JSON.parse(v),
+        key: key,
+        value: JSON.parse(value),
       });
     }
   }

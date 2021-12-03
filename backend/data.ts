@@ -12,12 +12,12 @@ export async function createDatabase() {
       lastmutationid int not null)`);
 
     await executor(`create table object (
-      k varchar(100) not null,
-      v text not null,
+      key varchar(100) not null,
+      value text not null,
       roomid varchar(100) not null,
       deleted bool not null default false,
       lastmodified timestamp(6) not null,
-      unique (roomid, k)
+      unique (roomid, key)
       )`);
 
     await executor(`create index on object (roomid)`);
@@ -68,10 +68,10 @@ export async function getObject(
   const {
     rows,
   } = await executor(
-    "select v from object where roomid = $1 and k = $2 and deleted = false",
+    "select value from object where roomid = $1 and key = $2 and deleted = false",
     [roomid, key]
   );
-  const value = rows[0]?.v;
+  const value = rows[0]?.value;
   if (!value) {
     return undefined;
   }
@@ -86,9 +86,9 @@ export async function putObject(
 ): Promise<void> {
   await executor(
     `
-    insert into object (roomid, k, v, deleted, lastmodified)
+    insert into object (roomid, key, value, deleted, lastmodified)
     values ($1, $2, $3, false, now())
-      on conflict (roomid, k) do update set v = $3, deleted = false, lastmodified = now()
+      on conflict (roomid, key) do update set value = $3, deleted = false, lastmodified = now()
     `,
     [roomID, key, JSON.stringify(value)]
   );
@@ -102,7 +102,7 @@ export async function delObject(
   await executor(
     `
     update object set deleted = true, lastmodified = now()
-    where roomid = $1 and k = $2
+    where roomid = $1 and key = $2
   `,
     [roomID, key]
   );
