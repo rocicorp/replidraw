@@ -7,7 +7,7 @@ import { Response } from "schemas/socket";
 
 export async function handlePullRequest(
   pull: PullRequest,
-  docID: string,
+  roomID: string,
   clientID: string,
   socket: WebSocket
 ) {
@@ -24,11 +24,11 @@ export async function handlePullRequest(
     [entries, lastMutationID, responseCookie] = await Promise.all([
       executor(
         `select k, v, deleted from object
-        where documentid = $1 and lastmodified > to_timestamp($2 ::decimal)`,
-        [docID, requestCookie]
+        where roomid = $1 and lastmodified > to_timestamp($2 ::decimal)`,
+        [roomID, requestCookie]
       ),
       getLastMutationID(executor, clientID),
-      getCookie(executor, docID),
+      getCookie(executor, roomID),
     ]);
   });
   console.log("lastMutationID: ", lastMutationID);

@@ -8,7 +8,7 @@ import { Response } from "schemas/socket";
 
 export async function handlePushRequest(
   push: PushRequest,
-  docID: string,
+  roomID: string,
   clientID: string,
   socket: WebSocket
 ) {
@@ -21,7 +21,7 @@ export async function handlePushRequest(
 
   const t0 = Date.now();
   await transact(async (executor) => {
-    const tx = new WriteTransactionImpl(executor, clientID, docID);
+    const tx = new WriteTransactionImpl(executor, clientID, roomID);
 
     let lastMutationID = await getLastMutationID(executor, clientID);
     console.log("lastMutationID:", lastMutationID);

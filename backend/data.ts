@@ -14,13 +14,13 @@ export async function createDatabase() {
     await executor(`create table object (
       k varchar(100) not null,
       v text not null,
-      documentid varchar(100) not null,
+      roomid varchar(100) not null,
       deleted bool not null default false,
       lastmodified timestamp(6) not null,
-      unique (documentid, k)
+      unique (roomid, k)
       )`);
 
-    await executor(`create index on object (documentid)`);
+    await executor(`create index on object (roomid)`);
     await executor(`create index on object (deleted)`);
     await executor(`create index on object (lastmodified)`);
   });
@@ -28,11 +28,11 @@ export async function createDatabase() {
 
 export async function getCookie(
   executor: Executor,
-  docID: string
+  roomID: string
 ): Promise<string> {
   const result = await executor(
-    "select max(extract(epoch from lastmodified)) from object where documentid = $1",
-    [docID]
+    "select max(extract(epoch from lastmodified)) from object where roomid = $1",
+    [roomID]
   );
   return result.rows[0]?.[result.fields[0].name] ?? "0";
 }
@@ -62,14 +62,14 @@ export async function setLastMutationID(
 
 export async function getObject(
   executor: Executor,
-  documentID: string,
+  roomid: string,
   key: string
 ): Promise<JSONValue | undefined> {
   const {
     rows,
   } = await executor(
-    "select v from object where documentid = $1 and k = $2 and deleted = false",
-    [documentID, key]
+    "select v from object where roomid = $1 and k = $2 and deleted = false",
+    [roomid, key]
   );
   const value = rows[0]?.v;
   if (!value) {
@@ -80,30 +80,30 @@ export async function getObject(
 
 export async function putObject(
   executor: Executor,
-  docID: string,
+  roomID: string,
   key: string,
   value: JSONValue
 ): Promise<void> {
   await executor(
     `
-    insert into object (documentid, k, v, deleted, lastmodified)
+    insert into object (roomid, k, v, deleted, lastmodified)
     values ($1, $2, $3, false, now())
-      on conflict (documentid, k) do update set v = $3, deleted = false, lastmodified = now()
+      on conflict (roomid, k) do update set v = $3, deleted = false, lastmodified = now()
     `,
-    [docID, key, JSON.stringify(value)]
+    [roomID, key, JSON.stringify(value)]
   );
 }
 
 export async function delObject(
   executor: Executor,
-  docID: string,
+  roomID: string,
   key: string
 ): Promise<void> {
   await executor(
     `
     update object set deleted = true, lastmodified = now()
-    where documentid = $1 and k = $2
+    where roomid = $1 and k = $2
   `,
-    [docID, key]
+    [roomID, key]
   );
 }
