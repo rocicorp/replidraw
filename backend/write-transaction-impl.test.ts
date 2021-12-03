@@ -1,7 +1,8 @@
 import { WriteTransactionImpl } from "./write-transaction-impl";
-import { createDatabase, transact, withExecutor } from "./pg";
+import { transact, withExecutor } from "./pg";
 import { expect } from "chai";
 import { setup, test } from "mocha";
+import { createDatabase } from "./data";
 
 setup(async () => {
   await withExecutor(async (executor) => {

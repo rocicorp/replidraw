@@ -92,31 +92,6 @@ async function transactWithExecutor<R>(
   throw new Error("Tried to execute transacation too many times. Giving up.");
 }
 
-export async function createDatabase() {
-  await transact(async (executor) => {
-    // TODO: Proper versioning for schema.
-    await executor("drop table if exists client cascade");
-    await executor("drop table if exists object cascade");
-
-    await executor(`create table client (
-      id varchar(100) primary key not null,
-      lastmutationid int not null)`);
-
-    await executor(`create table object (
-      k varchar(100) not null,
-      v text not null,
-      documentid varchar(100) not null,
-      deleted bool not null default false,
-      lastmodified timestamp(6) not null,
-      unique (documentid, k)
-      )`);
-
-    await executor(`create index on object (documentid)`);
-    await executor(`create index on object (deleted)`);
-    await executor(`create index on object (lastmodified)`);
-  });
-}
-
 //stackoverflow.com/questions/60339223/node-js-transaction-coflicts-in-postgresql-optimistic-concurrency-control-and
 function shouldRetryTransaction(err: unknown) {
   const code = typeof err === "object" ? String((err as any).code) : null;

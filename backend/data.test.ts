@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { setup, test } from "mocha";
 import {
+  createDatabase,
   delObject,
   getCookie,
   getLastMutationID,
@@ -8,7 +9,7 @@ import {
   putObject,
   setLastMutationID,
 } from "./data";
-import { createDatabase, withExecutor } from "./pg";
+import { withExecutor } from "./pg";
 
 setup(async () => {
   await withExecutor(async () => {
