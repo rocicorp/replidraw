@@ -1,4 +1,4 @@
-import { transact } from "./db";
+import { transact } from "./pg";
 import { getLastMutationID, setLastMutationID } from "./data";
 import { WriteTransactionImpl } from "./write-transaction-impl";
 import { mutators } from "../frontend/mutators";

@@ -1,5 +1,5 @@
 import { WriteTransactionImpl } from "./write-transaction-impl";
-import { createDatabase, transact, withExecutor } from "./db";
+import { createDatabase, transact, withExecutor } from "./pg";
 import { expect } from "chai";
 import { setup, test } from "mocha";
 

@@ -8,7 +8,7 @@ import {
   putObject,
   setLastMutationID,
 } from "./data";
-import { createDatabase, withExecutor } from "./db";
+import { createDatabase, withExecutor } from "./pg";
 
 setup(async () => {
   await withExecutor(async () => {

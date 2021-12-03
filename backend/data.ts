@@ -1,5 +1,5 @@
 import { JSONValue } from "replicache";
-import { Executor } from "./db";
+import { Executor } from "./pg";
 
 export async function getCookie(
   executor: Executor,

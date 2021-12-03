@@ -1,4 +1,4 @@
-import { transact } from "./db";
+import { transact } from "./pg";
 import { getCookie, getLastMutationID } from "./data";
 import { QueryResult } from "pg";
 import { PullRequest, PullResponse } from "../schemas/pull";

@@ -1,6 +1,6 @@
 import type { JSONValue, ScanResult, WriteTransaction } from "replicache";
 import { delObject, getObject, putObject } from "./data";
-import { Executor } from "./db";
+import { Executor } from "./pg";
 
 /**
  * Implements Replicache's WriteTransaction interface in terms of a MySQL
