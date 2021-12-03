@@ -1,9 +1,9 @@
 import { transact } from "./pg";
 import { getCookie, getLastMutationID, userPrefix } from "./data";
 import { QueryResult } from "pg";
-import { PullRequest, PullResponse } from "../schemas/pull";
+import { PullRequest, PullResponse } from "../protocol/pull";
 import WebSocket from "ws";
-import { Response } from "schemas/socket";
+import { Response } from "../protocol/socket";
 
 export async function handlePullRequest(
   pull: PullRequest,

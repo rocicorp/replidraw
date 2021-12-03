@@ -2,9 +2,9 @@ import { transact } from "./pg";
 import { getLastMutationID, setLastMutationID } from "./data";
 import { WriteTransactionImpl } from "./write-transaction-impl";
 import { mutators } from "../frontend/mutators";
-import { PushRequest } from "../schemas/push";
+import { PushRequest } from "../protocol/push";
 import WebSocket from "ws";
-import { Response } from "schemas/socket";
+import { Response } from "protocol/socket";
 
 export async function handlePushRequest(
   push: PushRequest,

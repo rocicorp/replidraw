@@ -3,7 +3,7 @@ import {
   ClientState,
   clientStateSchema,
   UserInfo,
-} from "../schemas/client-state";
+} from "../protocol/client-state";
 import { randInt } from "./rand";
 
 const colors = [

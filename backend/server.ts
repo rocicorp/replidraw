@@ -2,11 +2,11 @@ import { createServer } from "http";
 import WebSocket from "ws";
 import { parse } from "url";
 import next from "next";
-import { requestSchema, Response } from "../schemas/socket";
+import { requestSchema, Response } from "../protocol/socket";
 import { handlePushRequest } from "./push";
-import { PushRequest } from "schemas/push";
+import { PushRequest } from "protocol/push";
 import { handlePullRequest } from "./pull";
-import { PullRequest } from "schemas/pull";
+import { PullRequest } from "protocol/pull";
 import { Command } from "commander";
 
 const dev = process.env.NODE_ENV !== "production";

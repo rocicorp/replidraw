@@ -5,9 +5,9 @@ import { Nav } from "../../frontend/nav";
 import { M, mutators } from "../../frontend/mutators";
 import { randUserInfo } from "../../frontend/client-state";
 import { randomShape } from "../../frontend/shape";
-import { Request, responseSchema } from "schemas/socket";
-import { PushRequest, PushResponse } from "schemas/push";
-import { PullRequest, PullResponse } from "schemas/pull";
+import { Request, responseSchema } from "protocol/socket";
+import { PushRequest, PushResponse } from "protocol/push";
+import { PullRequest, PullResponse } from "protocol/pull";
 import { resolver } from "frontend/resolver";
 import { nanoid } from "nanoid";
 
