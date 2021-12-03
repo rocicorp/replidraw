@@ -47,7 +47,7 @@ test("set/getlastmutationid", async () => {
 
 test("getCookie", async () => {
   await withExecutor(async (executor) => {
-    expect(await getCookie(executor, "d1")).to.equal("");
+    expect(await getCookie(executor, "d1")).to.equal("0");
     await putObject(executor, "d1", "foo", "bar");
     const cookie1 = await getCookie(executor, "d1");
 
