@@ -12,43 +12,47 @@ export default function Home() {
 
   // TODO: Think through Replicache + SSR.
   useEffect(() => {
-    (async () => {
-      if (rep) {
-        return;
-      }
+    console.log("in effect");
 
-      const [, , docID] = location.pathname.split("/");
-      const r = new Replicache({
-        pushURL: `/api/replicache-push?docID=${docID}`,
-        pullURL: `/api/replicache-pull?docID=${docID}`,
-        useMemstore: true,
-        name: docID,
-        mutators,
-      });
+    const [, , docID] = location.pathname.split("/");
+    const r = new Replicache({
+      pushURL: `/api/replicache-push?docID=${docID}`,
+      pullURL: `/api/replicache-pull?docID=${docID}`,
+      name: docID,
+      mutators,
+    });
 
-      const defaultUserInfo = randUserInfo();
-      await r.mutate.initClientState({
+    const defaultUserInfo = randUserInfo();
+    const init = async () => {
+      r.mutate.initClientState({
         id: await r.clientID,
         defaultUserInfo,
       });
-      r.onSync = (syncing: boolean) => {
-        if (!syncing) {
-          r.onSync = null;
-          r.mutate.initShapes(Array.from({ length: 5 }, () => randomShape()));
-        }
-      };
+    };
+    init();
 
-      Pusher.logToConsole = true;
-      var pusher = new Pusher("d9088b47d2371d532c4c", {
-        cluster: "us3",
-      });
-      var channel = pusher.subscribe("default");
-      channel.bind("poke", function (data: unknown) {
-        r.pull();
-      });
+    r.onSync = (syncing: boolean) => {
+      if (!syncing) {
+        r.onSync = null;
+        r.mutate.initShapes(Array.from({ length: 5 }, () => randomShape()));
+      }
+    };
 
-      setRep(r);
-    })();
+    //Pusher.logToConsole = true;
+    var pusher = new Pusher("d9088b47d2371d532c4c", {
+      cluster: "us3",
+    });
+    var channel = pusher.subscribe("default");
+    channel.bind("poke", function (data: unknown) {
+      r.pull();
+    });
+
+    setRep(r);
+    return () => {
+      console.log("replacing replicache ");
+      channel.disconnect();
+      r.close();
+    };
   }, []);
 
   if (!rep) {

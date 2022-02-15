@@ -89,6 +89,7 @@ const maxAnimationDuration = 5000;
  * tweens between frames.
  */
 class Smoothie {
+  private static rep: Replicache | undefined;
   private static instances = new Map<string, Smoothie>();
 
   /**
@@ -105,6 +106,11 @@ class Smoothie {
     key: string,
     sub: SubscriptionFunction
   ): Smoothie {
+    if (rep !== this.rep) {
+      console.log("clearing smoothies");
+      this.instances.clear();
+      this.rep = rep;
+    }
     let s = this.instances.get(key);
     if (!s) {
       s = new Smoothie(rep, sub);
@@ -130,6 +136,7 @@ class Smoothie {
 
   private constructor(rep: Replicache, sub: SubscriptionFunction) {
     this.rep = rep;
+    console.log("smoothie subscribing");
     this.rep.subscribe(sub, {
       onData: (targets) => {
         const now = performance.now();
@@ -313,7 +320,7 @@ function useListener(
   useEffect(() => {
     smoother.addListener(listener);
     return () => smoother.removeListener(listener);
-  }, [dep]);
+  }, [dep, smoother]);
 }
 
 function shallowEqual(a1: any[], a2: any[]) {
