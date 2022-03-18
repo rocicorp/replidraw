@@ -38,6 +38,7 @@ DATABASE_URL="<DB URL>" NEXT_PUBLIC_SUPABASE_URL="<API URL>" NEXT_PUBLIC_SUPABAS
 
 ## TODO
 
+- Use local postgres for unit tests
 - Fix completeAllTodos() to use scan when https://github.com/rocicorp/replicache/issues/607 is fixed
 - Switch to Superstruct
 - Add instructions about provisioning Supabase and working locally
