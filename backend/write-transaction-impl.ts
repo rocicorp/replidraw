@@ -14,9 +14,12 @@ export class WriteTransactionImpl implements WriteTransaction {
     { value: JSONValue | undefined; dirty: boolean }
   > = new Map();
 
-  constructor(executor: ExecuteStatementFn, docID: string) {
+  readonly clientID: string;
+
+  constructor(executor: ExecuteStatementFn, docID: string, clientID: string) {
     this._docID = docID;
     this._executor = executor;
+    this.clientID = clientID;
   }
 
   async put(key: string, value: JSONValue): Promise<void> {

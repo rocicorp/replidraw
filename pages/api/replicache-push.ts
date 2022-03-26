@@ -59,7 +59,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
   const t0 = Date.now();
   await transact(async (executor) => {
-    const tx = new WriteTransactionImpl(executor, docID);
+    const tx = new WriteTransactionImpl(executor, docID, push.clientID);
 
     let lastMutationID = await getLastMutationID(executor, push.clientID);
     console.log("lastMutationID:", lastMutationID);
@@ -91,7 +91,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
         await mutator(tx, mutation.args);
       } catch (e) {
         console.error(
-          `Error executing mutator: ${JSON.stringify(mutator)}: ${e.message}`
+          `Error executing mutator: ${JSON.stringify(mutator)}: ${String(e)}`
         );
       }
 
