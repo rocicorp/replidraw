@@ -16,7 +16,7 @@ Install the following before starting:
 
 `replicache-todo` doesn't work with the most recent Supabase CLI. This has been reported to Supabase: https://github.com/supabase/cli/issues/258.
 
-To install the older version that works on Mac via Homebrew:
+For now, to install the older version that works on Mac via Homebrew:
 
 ```bash
 # See https://cmichel.io/how-to-install-an-old-package-version-with-brew/ for more about this procedure.
