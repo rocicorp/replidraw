@@ -14,14 +14,15 @@ Install the following before starting:
 
 ## Install the Supabase CLI @ v0.24.5
 
-replicache-todo doesn't work with the most recent Supabase CLI. This has been reported to Supabase: https://github.com/supabase/cli/issues/258.
+`replicache-todo` doesn't work with the most recent Supabase CLI. This has been reported to Supabase: https://github.com/supabase/cli/issues/258.
 
 To install the older version that works on Mac via Homebrew:
 
 ```bash
-# Download the homebrew formula for the correct version
-wget https://raw.githubusercontent.com/supabase/homebrew-tap/1e2b48f45e40a2374979ebcd5f227ccb03892de5/supabase.rb
-brew install --formula ./supabase.rb
+See https://cmichel.io/how-to-install-an-old-package-version-with-brew/ for more about this procedure.
+brew tap-new $USER/local-supabase
+brew extract --version=0.24.5 supabase/tap/supabase $USER/local-supabase
+brew install supabase@0.24.5
 ```
 
 ## Setup
