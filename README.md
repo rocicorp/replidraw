@@ -19,7 +19,7 @@ Install the following before starting:
 To install the older version that works on Mac via Homebrew:
 
 ```bash
-See https://cmichel.io/how-to-install-an-old-package-version-with-brew/ for more about this procedure.
+# See https://cmichel.io/how-to-install-an-old-package-version-with-brew/ for more about this procedure.
 brew tap-new $USER/local-supabase
 brew extract --version=0.24.5 supabase/tap/supabase $USER/local-supabase
 brew install supabase@0.24.5
