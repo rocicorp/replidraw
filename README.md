@@ -11,19 +11,7 @@ Install the following before starting:
 
 - Git
 - Docker (and ensure the daemon is running)
-
-## Install the Supabase CLI @ v0.24.5
-
-`replicache-todo` doesn't work with the most recent Supabase CLI. This has been reported to Supabase: https://github.com/supabase/cli/issues/258.
-
-For now, to install the older version that works on Mac via Homebrew:
-
-```bash
-# See https://cmichel.io/how-to-install-an-old-package-version-with-brew/ for more about this procedure.
-brew tap-new $USER/local-supabase
-brew extract --version=0.24.5 supabase/tap/supabase $USER/local-supabase
-brew install supabase@0.24.5
-```
+- [Supabase CLI](https://github.com/supabase/cli#install-the-cli)
 
 ## Setup
 
