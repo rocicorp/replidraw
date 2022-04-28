@@ -26,6 +26,8 @@ const App = ({ rep }: { rep: Replicache<M> }) => {
 
   const handleDeleteTodos = rep.mutate.deleteTodos;
 
+  const handleCompleteTodos = rep.mutate.completeTodos;
+
   return (
     <div>
       <Header onNewItem={handleNewItem} />
@@ -34,6 +36,7 @@ const App = ({ rep }: { rep: Replicache<M> }) => {
         onUpdateTodo={handleUpdateTodo}
         onCompleteTodo={handleCompleteTodo}
         onDeleteTodos={handleDeleteTodos}
+        onCompleteTodos={handleCompleteTodos}
       />
     </div>
   );

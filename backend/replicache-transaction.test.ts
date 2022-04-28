@@ -2,7 +2,8 @@ import { ReplicacheTransaction } from "./replicache-transaction";
 import { expect } from "chai";
 import { test, setup } from "mocha";
 import { transact, withExecutor } from "./pg";
-import { createDatabase, getEntry } from "./data";
+import { createDatabase, getEntry, putEntry } from "./data";
+import { ScanOptions } from "replicache";
 
 setup(async () => {
   await transact((executor) => createDatabase(executor));
@@ -56,4 +57,41 @@ test("ReplicacheTransaction overlap", async () => {
     const t3 = new ReplicacheTransaction(executor, "s1", "c1", 1);
     expect(await t3.has("foo")).true;
   });
+});
+
+test("ReplicacheTransaction scan", async () => {
+  async function deleteAllEntries() {
+    await withExecutor(async (executor) => {
+      await executor(`delete from entry`);
+    });
+  }
+  async function putEntries(entries: string[]) {
+    await withExecutor(async (executor) => {
+      for (const entry of entries) {
+        await putEntry(executor, "s1", entry, entry, 1);
+      }
+    });
+  }
+  async function test(
+    sources: string[],
+    changes: string[],
+    scanOpts: ScanOptions,
+    expected: string[]
+  ) {
+    await deleteAllEntries();
+    await putEntries(sources);
+    await withExecutor(async (executor) => {
+      const t = new ReplicacheTransaction(executor, "s1", "c1", 2);
+      for (const change of changes) {
+        await t.put(change, change);
+      }
+      await t.flush();
+      const results = await t.scan(scanOpts).keys().toArray();
+      expect(results).deep.equal(expected);
+    });
+  }
+  await test(["a"], ["b"], {}, ["a", "b"]);
+  await test(["a", "c"], ["b", "d"], { start: { key: "c" } }, ["c", "d"]);
+  await test(["a", "b"], ["bb", "c"], { prefix: "b" }, ["b", "bb"]);
+  await test(["a", "b"], ["bb", "c"], { prefix: "b", limit: 1 }, ["b"]);
 });

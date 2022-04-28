@@ -16,6 +16,7 @@ export default function Home() {
 
       const [, , spaceID] = location.pathname.split("/");
       const r = new Replicache({
+        licenseKey: "TODO",
         pushURL: `/api/replicache-push?spaceID=${spaceID}`,
         pullURL: `/api/replicache-pull?spaceID=${spaceID}`,
         name: spaceID,

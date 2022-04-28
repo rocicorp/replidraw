@@ -1,12 +1,16 @@
 import { expect } from "chai";
 import { setup, test } from "mocha";
 import { JSONValue } from "replicache";
-import { createDatabase, delEntry, getEntry, putEntry } from "./data";
+import {
+  createDatabase,
+  delEntry,
+  getEntries,
+  getEntry,
+  putEntry,
+} from "./data";
 import { transact, withExecutor } from "./pg";
 
 setup(async () => {
-  // TODO: This is a very expensive way to unit test :).
-  // Is there an in-memory postgres or something?
   await transact((executor) => createDatabase(executor));
 });
 
@@ -92,6 +96,64 @@ test("getEntry RoundTrip types", async () => {
     expect(await getEntry(executor, "s1", "string")).eq("foo");
     expect(await getEntry(executor, "s1", "array")).deep.equal([1, 2, 3]);
     expect(await getEntry(executor, "s1", "object")).deep.equal({ a: 1, b: 2 });
+  });
+});
+
+test("getEntries", async () => {
+  await withExecutor(async (executor) => {
+    await executor(`delete from entry where spaceid = 's1'`);
+    await putEntry(executor, "s1", "foo", "foo", 1);
+    await putEntry(executor, "s1", "bar", "bar", 1);
+    await putEntry(executor, "s1", "baz", "baz", 1);
+
+    type Case = {
+      name: string;
+      fromKey: string;
+      expect: string[];
+    };
+    const cases: Case[] = [
+      {
+        name: "fromEmpty",
+        fromKey: "",
+        expect: ["bar", "baz", "foo"],
+      },
+      {
+        name: "fromB",
+        fromKey: "b",
+        expect: ["bar", "baz", "foo"],
+      },
+      {
+        name: "fromBar",
+        fromKey: "bar",
+        expect: ["bar", "baz", "foo"],
+      },
+      {
+        name: "fromBas",
+        fromKey: "bas",
+        expect: ["baz", "foo"],
+      },
+      {
+        name: "fromF",
+        fromKey: "f",
+        expect: ["foo"],
+      },
+      {
+        name: "fromFooa",
+        fromKey: "fooa",
+        expect: [],
+      },
+    ];
+
+    for (const c of cases) {
+      const entries = [];
+      for await (const entry of getEntries(executor, "s1", c.fromKey)) {
+        entries.push(entry);
+      }
+      expect(entries).deep.equal(
+        c.expect.map((k) => [k, k]),
+        c.name
+      );
+    }
   });
 });
 

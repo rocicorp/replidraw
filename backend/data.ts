@@ -109,6 +109,22 @@ export async function delEntry(
   );
 }
 
+export async function* getEntries(
+  executor: Executor,
+  spaceID: string,
+  fromKey: string
+): AsyncIterable<readonly [string, JSONValue]> {
+  const {
+    rows,
+  } = await executor(
+    `select key, value from entry where spaceid = $1 and key >= $2 and deleted = false order by key`,
+    [spaceID, fromKey]
+  );
+  for (const row of rows) {
+    yield [row.key as string, JSON.parse(row.value) as JSONValue] as const;
+  }
+}
+
 export async function getChangedEntries(
   executor: Executor,
   spaceID: string,

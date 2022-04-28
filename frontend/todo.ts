@@ -51,3 +51,10 @@ export async function getAllTodos(tx: ReadTransaction): Promise<Todo[]> {
   todos.sort((a, b) => a.sort - b.sort);
   return todos;
 }
+
+export async function completeAllTodos(tx: WriteTransaction): Promise<void> {
+  const todos = await getAllTodos(tx);
+  for (const todo of todos) {
+    await putTodo(tx, { ...todo, completed: true });
+  }
+}

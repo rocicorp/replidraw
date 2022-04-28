@@ -31,11 +31,16 @@ export const mutators = {
     }
   },
 
-  // TODO: Use getAllTodos() when server supports scan.
-  completeAllTodos: async (
+  completeTodos: async (
     tx: WriteTransaction,
     { completed, ids }: { completed: boolean; ids: string[] }
   ): Promise<void> => {
+    // Note: we could also use tx.scan() to get all the todos and
+    // mark uncompleted ones completed. However, that has slightly different
+    // semantics. By passing in the ids, we are only updating the ones that
+    // the user saw when they pressed the button. Concurrently created todos
+    // won't be affected. I think this is less surprising in this case, but
+    // you can choose the semantics you prefer.
     for (const id of ids) {
       const todo = await getTodo(tx, id);
       if (!todo) {

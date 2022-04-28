@@ -1,6 +1,18 @@
-import type { JSONValue, ScanResult, WriteTransaction } from "replicache";
-import { delEntry, getEntry, putEntry } from "./data";
+import {
+  isScanIndexOptions,
+  JSONValue,
+  makeScanResult,
+  ScanNoIndexOptions,
+  ScanOptions,
+  ScanResult,
+  WriteTransaction,
+  mergeAsyncIterables,
+  filterAsyncIterable,
+} from "replicache";
+import { delEntry, getEntries, getEntry, putEntry } from "./data";
 import { Executor } from "./pg";
+
+type CacheMap = Map<string, { value: JSONValue | undefined; dirty: boolean }>;
 
 /**
  * Implements Replicache's WriteTransaction interface in terms of a Postgres
@@ -11,10 +23,7 @@ export class ReplicacheTransaction implements WriteTransaction {
   private _clientID: string;
   private _version: number;
   private _executor: Executor;
-  private _cache: Map<
-    string,
-    { value: JSONValue | undefined; dirty: boolean }
-  > = new Map();
+  private _cache: CacheMap = new Map();
 
   constructor(
     executor: Executor,
@@ -54,15 +63,33 @@ export class ReplicacheTransaction implements WriteTransaction {
     return val !== undefined;
   }
 
-  // TODO!
   async isEmpty(): Promise<boolean> {
-    throw new Error("not implemented");
+    for await (const _ of this.scan()) {
+      return false;
+    }
+    return true;
   }
-  scan(): ScanResult<string> {
-    throw new Error("not implemented");
-  }
-  scanAll(): Promise<[string, JSONValue][]> {
-    throw new Error("not implemented");
+
+  scan(options: ScanOptions = {} as ScanNoIndexOptions) {
+    if (isScanIndexOptions(options)) {
+      throw new Error("not implemented");
+    }
+
+    const { _executor: executor, _spaceID: spaceID, _cache: cache } = this;
+
+    return makeScanResult<ScanNoIndexOptions, JSONValue>(
+      options,
+      (fromKey: string) => {
+        const source = getEntries(executor, spaceID, fromKey);
+        const pending = getCacheEntries(cache, fromKey);
+        const merged = mergeAsyncIterables(source, pending, entryCompare);
+        const filtered = filterAsyncIterable(
+          merged,
+          (entry) => entry[1] !== undefined
+        ) as AsyncIterable<readonly [string, JSONValue]>;
+        return filtered;
+      }
+    );
   }
 
   async flush(): Promise<void> {
@@ -84,4 +111,29 @@ export class ReplicacheTransaction implements WriteTransaction {
         })
     );
   }
+}
+
+function getCacheEntries(
+  cache: CacheMap,
+  fromKey: string
+): Iterable<readonly [string, JSONValue | undefined]> {
+  const entries = [];
+  for (const [key, { value, dirty }] of cache) {
+    if (dirty && stringCompare(key, fromKey) >= 0) {
+      entries.push([key, value] as const);
+    }
+  }
+  entries.sort((a, b) => stringCompare(a[0], b[0]));
+  return entries;
+}
+
+function stringCompare(a: string, b: string): number {
+  return a === b ? 0 : a < b ? -1 : 1;
+}
+
+function entryCompare(
+  a: readonly [string, unknown],
+  b: readonly [string, unknown]
+): number {
+  return stringCompare(a[0], b[0]);
 }
