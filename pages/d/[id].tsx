@@ -17,7 +17,7 @@ export default function Home() {
       const [, , spaceID] = location.pathname.split("/");
       const r = new Replicache({
         // See https://doc.replicache.dev/licensing for how to get a license key.
-        licenseKey: process.env.REPLICACHE_LICENSE_KEY!,
+        licenseKey: process.env.NEXT_PUBLIC_REPLICACHE_LICENSE_KEY!,
         pushURL: `/api/replicache-push?spaceID=${spaceID}`,
         pullURL: `/api/replicache-pull?spaceID=${spaceID}`,
         name: spaceID,
