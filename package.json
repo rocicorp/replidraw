@@ -16,7 +16,7 @@
     "pusher-js": "^7.0.3",
     "react": "17.0.2",
     "react-dom": "17.0.2",
-    "replicache": "10.0.0-beta.1",
+    "replicache": "10.0.0",
     "replicache-react": "^2.6.0"
   },
   "devDependencies": {
