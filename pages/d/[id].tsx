@@ -19,6 +19,8 @@ export default function Home() {
 
       const [, , docID] = location.pathname.split("/");
       const r = new Replicache({
+        // To get your own license key run `npx replicache get-license`. (It's free.)
+        licenseKey: process.env.NEXT_PUBLIC_REPLICACHE_LICENSE_KEY!,
         pushURL: `/api/replicache-push?docID=${docID}`,
         pullURL: `/api/replicache-pull?docID=${docID}`,
         name: docID,

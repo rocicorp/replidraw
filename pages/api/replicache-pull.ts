@@ -20,7 +20,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   let lastMutationID = 0;
 
   await transact(async (executor) => {
-    const tx = new WriteTransactionImpl(executor, docID);
+    const tx = new WriteTransactionImpl(executor, docID, pull.clientID);
     await initShapes(
       tx,
       new Array(5).fill(null).map(() => randomShape())
@@ -44,7 +44,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
   // Grump. Typescript seems to not understand that the argument to transact()
   // is guaranteed to have been called before transact() exits.
-  entries = entries as any as ExecuteStatementCommandOutput;
+  entries = (entries as any) as ExecuteStatementCommandOutput;
 
   const resp: PullResponse = {
     lastMutationID,
