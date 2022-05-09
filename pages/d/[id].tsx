@@ -41,7 +41,7 @@ export default function Home() {
 
       Pusher.logToConsole = true;
       var pusher = new Pusher("d9088b47d2371d532c4c", {
-        cluster: "us3",
+        cluster: "mt1",
       });
       var channel = pusher.subscribe("default");
       channel.bind("poke", function (data: unknown) {
