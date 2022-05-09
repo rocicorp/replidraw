@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { Replicache } from "replicache";
+import { Designer } from "../../frontend/designer";
+import { Nav } from "../../frontend/nav";
+import Pusher from "pusher-js";
 import { M, mutators } from "../../frontend/mutators";
-import App from "../../frontend/app";
+import { randUserInfo } from "../../frontend/client-state";
+import { randomShape } from "../../frontend/shape";
 import { createClient } from "@supabase/supabase-js";
 
 export default function Home() {
@@ -14,13 +18,13 @@ export default function Home() {
         return;
       }
 
-      const [, , spaceID] = location.pathname.split("/");
+      const [, , docID] = location.pathname.split("/");
       const r = new Replicache({
-        // See https://doc.replicache.dev/licensing for how to get a license key.
+        // To get your own license key run `npx replicache get-license`. (It's free.)
         licenseKey: process.env.NEXT_PUBLIC_REPLICACHE_LICENSE_KEY!,
-        pushURL: `/api/replicache-push?spaceID=${spaceID}`,
-        pullURL: `/api/replicache-pull?spaceID=${spaceID}`,
-        name: spaceID,
+        pushURL: `/api/replicache-push?spaceID=${docID}`,
+        pullURL: `/api/replicache-pull?spaceID=${docID}`,
+        name: docID,
         mutators,
       });
 
@@ -29,11 +33,32 @@ export default function Home() {
         process.env.NEXT_PUBLIC_SUPABASE_KEY!
       );
       supabase
-        .from(`space:id=eq.${spaceID}`)
+        .from(`space:id=eq.${docID}`)
         .on("*", () => {
           r.pull();
         })
         .subscribe();
+
+      const defaultUserInfo = randUserInfo();
+      await r.mutate.initClientState({
+        id: await r.clientID,
+        defaultUserInfo,
+      });
+      r.onSync = (syncing: boolean) => {
+        if (!syncing) {
+          r.onSync = null;
+          r.mutate.initShapes(Array.from({ length: 5 }, () => randomShape()));
+        }
+      };
+
+      Pusher.logToConsole = true;
+      var pusher = new Pusher("d9088b47d2371d532c4c", {
+        cluster: "us3",
+      });
+      var channel = pusher.subscribe("default");
+      channel.bind("poke", function (data: unknown) {
+        r.pull();
+      });
 
       setRep(r);
     })();
@@ -44,8 +69,20 @@ export default function Home() {
   }
 
   return (
-    <div className="todoapp">
-      <App rep={rep} />
+    <div
+      style={{
+        position: "absolute",
+        display: "flex",
+        flexDirection: "column",
+        left: 0,
+        top: 0,
+        width: "100%",
+        height: "100%",
+        background: "rgb(229,229,229)",
+      }}
+    >
+      <Nav rep={rep} />
+      <Designer {...{ rep }} />
     </div>
   );
 }

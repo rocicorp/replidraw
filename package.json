@@ -29,11 +29,14 @@
     "@types/react": "^17.0.11",
     "chai": "^4.3.6",
     "classnames": "^2.3.1",
+    "cubic-hermite": "^1.0.0",
     "mocha": "^9.2.1",
     "nanoid": "^3.3.1",
     "prettier": "^2.2.1",
+    "react-bootstrap": "^2.3.1",
+    "react-draggable": "^4.4.5",
+    "react-hotkeys": "^2.0.0",
     "todomvc-app-css": "^2.4.2",
-    "ts-node": "^10.7.0",
     "typescript": "^4.1.5",
     "zod": "^3.13.4"
   }
