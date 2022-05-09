@@ -11,6 +11,7 @@ import { ReplicacheTransaction } from "../../backend/replicache-transaction";
 import { mutators } from "../../frontend/mutators";
 import { z } from "zod";
 import { jsonSchema } from "../../util/json";
+import Pusher from "pusher";
 
 // TODO: Either generate schema from mutator types, or vice versa, to tighten this.
 // See notes in bug: https://github.com/rocicorp/replidraw/issues/47
@@ -28,10 +29,11 @@ const pushRequestSchema = z.object({
 export default async (req: NextApiRequest, res: NextApiResponse) => {
   console.log("Processing push", JSON.stringify(req.body, null, ""));
 
+  const t0 = Date.now();
+
   const spaceID = req.query["spaceID"].toString();
   const push = pushRequestSchema.parse(req.body);
 
-  const t0 = Date.now();
   await transact(async (executor) => {
     await createDatabase(executor);
 
@@ -94,5 +96,20 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
   console.log("Processed all mutations in", Date.now() - t0);
 
+  const pusher = new Pusher({
+    appId: "1407203",
+    key: "d56ed6dcf532b5fb344d",
+    secret: "12853972ceb8e1f63411",
+    cluster: "mt1",
+    useTLS: true,
+  });
+
+  const t2 = Date.now();
+  // We need to await here otherwise, Next.js will frequently kill the request
+  // and the poke won't get sent.
+  await pusher.trigger("default", "poke", {});
+  console.log("Sent poke in", Date.now() - t2);
+
   res.status(200).json({});
+  console.log("Processing push took", Date.now() - t0);
 };

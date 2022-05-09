@@ -6,7 +6,6 @@ import Pusher from "pusher-js";
 import { M, mutators } from "../../frontend/mutators";
 import { randUserInfo } from "../../frontend/client-state";
 import { randomShape } from "../../frontend/shape";
-import { createClient } from "@supabase/supabase-js";
 
 export default function Home() {
   const [rep, setRep] = useState<Replicache<M> | null>(null);
@@ -28,17 +27,6 @@ export default function Home() {
         mutators,
       });
 
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_KEY!
-      );
-      supabase
-        .from(`space:id=eq.${docID}`)
-        .on("*", () => {
-          r.pull();
-        })
-        .subscribe();
-
       const defaultUserInfo = randUserInfo();
       await r.mutate.initClientState({
         id: await r.clientID,
@@ -52,8 +40,8 @@ export default function Home() {
       };
 
       Pusher.logToConsole = true;
-      var pusher = new Pusher("d9088b47d2371d532c4c", {
-        cluster: "us3",
+      var pusher = new Pusher("d56ed6dcf532b5fb344d", {
+        cluster: "mt1",
       });
       var channel = pusher.subscribe("default");
       channel.bind("poke", function (data: unknown) {
