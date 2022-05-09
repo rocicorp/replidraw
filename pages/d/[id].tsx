@@ -6,7 +6,6 @@ import Pusher from "pusher-js";
 import { M, mutators } from "../../frontend/mutators";
 import { randUserInfo } from "../../frontend/client-state";
 import { randomShape } from "../../frontend/shape";
-import { createClient } from "@supabase/supabase-js";
 
 export default function Home() {
   const [rep, setRep] = useState<Replicache<M> | null>(null);
@@ -27,17 +26,6 @@ export default function Home() {
         name: docID,
         mutators,
       });
-
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_KEY!
-      );
-      supabase
-        .from(`space:id=eq.${docID}`)
-        .on("*", () => {
-          r.pull();
-        })
-        .subscribe();
 
       const defaultUserInfo = randUserInfo();
       await r.mutate.initClientState({
