@@ -17,14 +17,13 @@ const pullRequest = z.object({
 export default async (req: NextApiRequest, res: NextApiResponse) => {
   console.log(`Processing pull`, JSON.stringify(req.body, null, ""));
 
+  const t0 = Date.now();
   const spaceID = req.query["spaceID"].toString();
   const pull = pullRequest.parse(req.body);
   let requestCookie = pull.cookie;
 
   console.log("spaceID", spaceID);
   console.log("clientID", pull.clientID);
-
-  const t0 = Date.now();
 
   const [entries, lastMutationID, responseCookie] = await transact(
     async (executor) => {
@@ -63,7 +62,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     }
   }
 
-  console.log(`Returning`, JSON.stringify(resp, null, ""));
   res.json(resp);
   res.end();
+  console.log("Processing pull took", Date.now() - t0);
 };

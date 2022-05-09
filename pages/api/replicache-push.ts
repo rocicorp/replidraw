@@ -29,10 +29,11 @@ const pushRequestSchema = z.object({
 export default async (req: NextApiRequest, res: NextApiResponse) => {
   console.log("Processing push", JSON.stringify(req.body, null, ""));
 
+  const t0 = Date.now();
+
   const spaceID = req.query["spaceID"].toString();
   const push = pushRequestSchema.parse(req.body);
 
-  const t0 = Date.now();
   await transact(async (executor) => {
     await createDatabase(executor);
 
@@ -99,7 +100,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     appId: "1157097",
     key: "d9088b47d2371d532c4c",
     secret: "64204dab73c42e17afc3",
-    cluster: "us3",
+    cluster: "mt1",
     useTLS: true,
   });
 
@@ -110,4 +111,5 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   console.log("Sent poke in", Date.now() - t2);
 
   res.status(200).json({});
+  console.log("Processing push took", Date.now() - t0);
 };
