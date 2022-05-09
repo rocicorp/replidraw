@@ -97,9 +97,9 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   console.log("Processed all mutations in", Date.now() - t0);
 
   const pusher = new Pusher({
-    appId: "1157097",
-    key: "d9088b47d2371d532c4c",
-    secret: "64204dab73c42e17afc3",
+    appId: "1407203",
+    key: "d56ed6dcf532b5fb344d",
+    secret: "12853972ceb8e1f63411",
     cluster: "mt1",
     useTLS: true,
   });

@@ -40,7 +40,7 @@ export default function Home() {
       };
 
       Pusher.logToConsole = true;
-      var pusher = new Pusher("d9088b47d2371d532c4c", {
+      var pusher = new Pusher("d56ed6dcf532b5fb344d", {
         cluster: "mt1",
       });
       var channel = pusher.subscribe("default");
