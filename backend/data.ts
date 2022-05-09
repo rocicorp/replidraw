@@ -1,100 +1,199 @@
-import type { ExecuteStatementFn } from "./rds";
 import { JSONValue } from "replicache";
+import { z } from "zod";
+import { Executor } from "./pg";
 
-export async function getCookie(
-  executor: ExecuteStatementFn,
-  docID: string
-): Promise<string> {
-  const result = await executor(
-    "SELECT UNIX_TIMESTAMP(MAX(LastModified)) FROM Object WHERE DocumentID = :docID",
-    {
-      docID: { stringValue: docID },
-    }
-  );
-  const version = result.records?.[0]?.[0]?.stringValue;
-  return version || "";
+export async function createDatabase(executor: Executor) {
+  const schemaVersion = await getSchemaVersion(executor);
+  if (schemaVersion < 0 || schemaVersion > 1) {
+    throw new Error("Unexpected schema version: " + schemaVersion);
+  }
+  if (schemaVersion === 0) {
+    await createSchemaVersion1(executor);
+  }
+  console.log("schemaVersion is 1 - nothing to do");
 }
 
-export async function getLastMutationID(
-  executor: ExecuteStatementFn,
-  clientID: string
-): Promise<number> {
-  const result = await executor(
-    "SELECT LastMutationID FROM Client WHERE Id = :id",
-    {
-      id: { stringValue: clientID },
-    }
+async function getSchemaVersion(executor: Executor) {
+  const metaExists = await executor(`select exists(
+    select from pg_tables where schemaname = 'public' and tablename = 'meta')`);
+  if (!metaExists.rows[0].exists) {
+    return 0;
+  }
+
+  const qr = await executor(
+    `select value from meta where key = 'schemaVersion'`
   );
-  return result.records?.[0]?.[0]?.longValue ?? 0;
+  return qr.rows[0].value;
 }
 
-export async function setLastMutationID(
-  executor: ExecuteStatementFn,
-  clientID: string,
-  lastMutationID: number
-): Promise<void> {
-  await executor(
-    "INSERT INTO Client (Id, LastMutationID) VALUES (:id, :lastMutationID) " +
-      "ON DUPLICATE KEY UPDATE Id = :id, LastMutationID = :lastMutationID",
-    {
-      id: { stringValue: clientID },
-      lastMutationID: { longValue: lastMutationID },
-    }
-  );
+export async function createSchemaVersion1(executor: Executor) {
+  await executor("create table meta (key text primary key, value json)");
+  await executor("insert into meta (key, value) values ('schemaVersion', '1')");
+
+  await executor(`create table space (
+      id text primary key not null,
+      version integer not null,
+      lastmodified timestamp(6) not null
+      )`);
+
+  await executor(`alter publication supabase_realtime add table space`);
+  await executor(`alter publication supabase_realtime set 
+      (publish = 'insert, update, delete');`);
+
+  await executor(`create table client (
+        id text primary key not null,
+        lastmutationid integer not null,
+        lastmodified timestamp(6) not null
+        )`);
+
+  await executor(`create table entry (
+      spaceid text not null,
+      key text not null,
+      value text not null,
+      deleted boolean not null,
+      version integer not null,
+      lastmodified timestamp(6) not null
+      )`);
+
+  await executor(`create unique index on entry (spaceid, key)`);
+  await executor(`create index on entry (spaceid)`);
+  await executor(`create index on entry (deleted)`);
+  await executor(`create index on entry (version)`);
 }
 
-export async function getObject(
-  executor: ExecuteStatementFn,
-  documentID: string,
+export async function getEntry(
+  executor: Executor,
+  spaceid: string,
   key: string
 ): Promise<JSONValue | undefined> {
-  const { records } = await executor(
-    "SELECT V FROM Object WHERE DocumentID =:docID AND K = :key AND Deleted = False",
-    {
-      key: { stringValue: key },
-      docID: { stringValue: documentID },
-    }
+  const {
+    rows,
+  } = await executor(
+    "select value from entry where spaceid = $1 and key = $2 and deleted = false",
+    [spaceid, key]
   );
-  const value = records?.[0]?.[0]?.stringValue;
-  if (!value) {
+  const value = rows[0]?.value;
+  if (value === undefined) {
     return undefined;
   }
   return JSON.parse(value);
 }
 
-export async function putObject(
-  executor: ExecuteStatementFn,
-  docID: string,
+export async function putEntry(
+  executor: Executor,
+  spaceID: string,
   key: string,
-  value: JSONValue
+  value: JSONValue,
+  version: number
 ): Promise<void> {
   await executor(
     `
-    INSERT INTO Object (DocumentID, K, V, Deleted)
-    VALUES (:docID, :key, :value, False)
-      ON DUPLICATE KEY UPDATE V = :value, Deleted = False
+    insert into entry (spaceid, key, value, deleted, version, lastmodified)
+    values ($1, $2, $3, false, $4, now())
+      on conflict (spaceid, key) do update set
+        value = $3, deleted = false, version = $4, lastmodified = now()
     `,
-    {
-      docID: { stringValue: docID },
-      key: { stringValue: key },
-      value: { stringValue: JSON.stringify(value) },
-    }
+    [spaceID, key, JSON.stringify(value), version]
   );
 }
 
-export async function delObject(
-  executor: ExecuteStatementFn,
-  docID: string,
-  key: string
+export async function delEntry(
+  executor: Executor,
+  spaceID: string,
+  key: string,
+  version: number
+): Promise<void> {
+  await executor(
+    `update entry set deleted = true, version = $3 where spaceid = $1 and key = $2`,
+    [spaceID, key, version]
+  );
+}
+
+export async function* getEntries(
+  executor: Executor,
+  spaceID: string,
+  fromKey: string
+): AsyncIterable<readonly [string, JSONValue]> {
+  const {
+    rows,
+  } = await executor(
+    `select key, value from entry where spaceid = $1 and key >= $2 and deleted = false order by key`,
+    [spaceID, fromKey]
+  );
+  for (const row of rows) {
+    yield [row.key as string, JSON.parse(row.value) as JSONValue] as const;
+  }
+}
+
+export async function getChangedEntries(
+  executor: Executor,
+  spaceID: string,
+  prevVersion: number
+): Promise<[key: string, value: JSONValue, deleted: boolean][]> {
+  const {
+    rows,
+  } = await executor(
+    `select key, value, deleted from entry where spaceid = $1 and version > $2`,
+    [spaceID, prevVersion]
+  );
+  return rows.map((row) => [row.key, JSON.parse(row.value), row.deleted]);
+}
+
+export async function getCookie(
+  executor: Executor,
+  spaceID: string
+): Promise<number | undefined> {
+  const { rows } = await executor(`select version from space where id = $1`, [
+    spaceID,
+  ]);
+  const value = rows[0]?.version;
+  if (value === undefined) {
+    return undefined;
+  }
+  return z.number().parse(value);
+}
+
+export async function setCookie(
+  executor: Executor,
+  spaceID: string,
+  version: number
 ): Promise<void> {
   await executor(
     `
-    UPDATE Object SET Deleted = True
-    WHERE DocumentID = :docID AND K = :key
-  `,
-    {
-      docID: { stringValue: docID },
-      key: { stringValue: key },
-    }
+    insert into space (id, version, lastmodified) values ($1, $2, now())
+      on conflict (id) do update set version = $2, lastmodified = now()
+    `,
+    [spaceID, version]
+  );
+}
+
+export async function getLastMutationID(
+  executor: Executor,
+  clientID: string
+): Promise<number | undefined> {
+  const {
+    rows,
+  } = await executor(`select lastmutationid from client where id = $1`, [
+    clientID,
+  ]);
+  const value = rows[0]?.lastmutationid;
+  if (value === undefined) {
+    return undefined;
+  }
+  return z.number().parse(value);
+}
+
+export async function setLastMutationID(
+  executor: Executor,
+  clientID: string,
+  lastMutationID: number
+): Promise<void> {
+  await executor(
+    `
+    insert into client (id, lastmutationid, lastmodified)
+    values ($1, $2, now())
+      on conflict (id) do update set lastmutationid = $2, lastmodified = now()
+    `,
+    [clientID, lastMutationID]
   );
 }

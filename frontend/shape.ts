@@ -1,45 +1,62 @@
 import { ReadTransaction, WriteTransaction } from "replicache";
-import * as t from "io-ts";
-import { must } from "./decode";
+import { z } from "zod";
+
 import { nanoid } from "nanoid";
 import { randInt } from "./rand";
 
-export const shape = t.type({
-  type: t.literal("rect"),
-  x: t.number,
-  y: t.number,
-  width: t.number,
-  height: t.number,
-  rotate: t.number,
-  fill: t.string,
+export const shapePrefix = `shape-`;
+
+export const shapeKey = (id: string) => `${shapePrefix}${id}`;
+
+export const shapeID = (key: string) => {
+  if (!key.startsWith(shapePrefix)) {
+    throw new Error(`Invalid key: ${key}`);
+  }
+  return key.substring(shapePrefix.length);
+};
+
+export const shapeSchema = z.object({
+  id: z.string(),
+  type: z.literal("rect"),
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  rotate: z.number(),
+  fill: z.string(),
 });
 
-export type Shape = t.TypeOf<typeof shape>;
+export type Shape = z.TypeOf<typeof shapeSchema>;
+
+const shapeValueSchema = shapeSchema.omit({ id: true });
 
 export async function getShape(
   tx: ReadTransaction,
   id: string
-): Promise<Shape | null> {
-  const jv = await tx.get(key(id));
-  if (!jv) {
+): Promise<Shape | undefined> {
+  const val = await tx.get(shapeKey(id));
+  if (val === undefined) {
     console.log(`Specified shape ${id} not found.`);
-    return null;
+    return undefined;
   }
-  return must(shape.decode(jv));
+  return {
+    id,
+    ...shapeValueSchema.parse(val),
+  };
 }
 
-export function putShape(
+export async function putShape(
   tx: WriteTransaction,
-  { id, shape }: { id: string; shape: Shape }
+  shape: Shape
 ): Promise<void> {
-  return tx.put(key(id), shape);
+  await tx.put(shapeKey(shape.id), shape);
 }
 
 export async function deleteShape(
   tx: WriteTransaction,
   id: string
 ): Promise<void> {
-  await tx.del(key(id));
+  await tx.del(shapeKey(id));
 }
 
 export async function moveShape(
@@ -50,7 +67,7 @@ export async function moveShape(
   if (shape) {
     shape.x += dx;
     shape.y += dy;
-    await putShape(tx, { id, shape });
+    await putShape(tx, shape);
   }
 }
 
@@ -67,7 +84,7 @@ export async function resizeShape(
     shape.height += dh;
     shape.x -= dw / 2;
     shape.y -= dh / 2;
-    await putShape(tx, { id, shape });
+    await putShape(tx, shape);
   }
 }
 
@@ -78,14 +95,11 @@ export async function rotateShape(
   const shape = await getShape(tx, id);
   if (shape) {
     shape.rotate += ddeg;
-    await putShape(tx, { id, shape });
+    await putShape(tx, shape);
   }
 }
 
-export async function initShapes(
-  tx: WriteTransaction,
-  shapes: { id: string; shape: Shape }[]
-) {
+export async function initShapes(tx: WriteTransaction, shapes: Shape[]) {
   if (await tx.has("initialized")) {
     return;
   }
@@ -99,8 +113,6 @@ function key(id: string): string {
   return `${shapePrefix}${id}`;
 }
 
-export const shapePrefix = "shape-";
-
 const colors = ["red", "blue", "white", "green", "yellow"];
 let nextColor = 0;
 
@@ -112,14 +124,12 @@ export function randomShape() {
   }
   return {
     id: nanoid(),
-    shape: {
-      type: "rect",
-      x: randInt(0, 400),
-      y: randInt(0, 400),
-      width: s,
-      height: s,
-      rotate: randInt(0, 359),
-      fill,
-    } as Shape,
-  };
+    type: "rect",
+    x: randInt(0, 400),
+    y: randInt(0, 400),
+    width: s,
+    height: s,
+    rotate: randInt(0, 359),
+    fill,
+  } as Shape;
 }

@@ -6,6 +6,7 @@ import Pusher from "pusher-js";
 import { M, mutators } from "../../frontend/mutators";
 import { randUserInfo } from "../../frontend/client-state";
 import { randomShape } from "../../frontend/shape";
+import { createClient } from "@supabase/supabase-js";
 
 export default function Home() {
   const [rep, setRep] = useState<Replicache<M> | null>(null);
@@ -19,11 +20,24 @@ export default function Home() {
 
       const [, , docID] = location.pathname.split("/");
       const r = new Replicache({
-        pushURL: `/api/replicache-push?docID=${docID}`,
-        pullURL: `/api/replicache-pull?docID=${docID}`,
+        // To get your own license key run `npx replicache get-license`. (It's free.)
+        licenseKey: process.env.NEXT_PUBLIC_REPLICACHE_LICENSE_KEY!,
+        pushURL: `/api/replicache-push?spaceID=${docID}`,
+        pullURL: `/api/replicache-pull?spaceID=${docID}`,
         name: docID,
         mutators,
       });
+
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_KEY!
+      );
+      supabase
+        .from(`space:id=eq.${docID}`)
+        .on("*", () => {
+          r.pull();
+        })
+        .subscribe();
 
       const defaultUserInfo = randUserInfo();
       await r.mutate.initClientState({

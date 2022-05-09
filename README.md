@@ -1,8 +1,10 @@
-# Replidraw
+# replicache-todo
 
-A tiny Figma-like multiplayer graphics editor.
+A super fast todo list built with Replicache, React, Next.js, Vercel, Supabase, and Postgres.
 
-Built with [Replicache](https://replicache.dev), [Next.js](https://nextjs.org/),
-and [MySQL](https://mysql.com/).
+The simplest possible starter sample for Replicache.
+Intended for customers to clone and start editing.
 
-Running live at https://replidraw2.vercel.app/.
+## To get started
+
+Follow the instructions in the [Replicache Getting Started Guide](https://doc.replicache.dev/).

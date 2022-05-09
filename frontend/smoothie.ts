@@ -1,8 +1,8 @@
 import hermite from "cubic-hermite";
 import { useEffect, useState } from "react";
 import { Replicache, ReadTransaction } from "replicache";
-import { getClientState } from "../frontend/client-state";
-import { getShape } from "../frontend/shape";
+import { getClientState } from "./client-state";
+import { getShape } from "./shape";
 
 /**
  * Gets the current position of the cursor for `clientID`, but smoothing out
@@ -40,9 +40,9 @@ export function useShape(rep: Replicache, shapeID: string) {
     `shape/${shapeID}`,
     async (tx: ReadTransaction) => {
       const shape = await getShape(tx, shapeID);
-      return (
-        shape && [shape.x, shape.y, shape.width, shape.height, shape.rotate]
-      );
+      return shape
+        ? [shape.x, shape.y, shape.width, shape.height, shape.rotate]
+        : null;
     }
   );
   useListener(smoother, setValues, shapeID);

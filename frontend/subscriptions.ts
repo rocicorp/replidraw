@@ -19,7 +19,7 @@ export function useShapeByID(rep: Replicache<typeof mutators>, id: string) {
   return useSubscribe(
     rep,
     async (tx) => {
-      return await getShape(tx, id);
+      return (await getShape(tx, id)) ?? null;
     },
     null
   );

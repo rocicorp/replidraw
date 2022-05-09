@@ -1,6 +1,5 @@
 import { ReadTransaction, WriteTransaction } from "replicache";
-import * as t from "io-ts";
-import { must } from "./decode";
+import { z } from "zod";
 import { randInt } from "./rand";
 
 const colors = [
@@ -34,45 +33,55 @@ const avatars = [
   ["🐣", "Chick"],
 ];
 
-export const userInfo = t.type({
-  avatar: t.string,
-  name: t.string,
-  color: t.string,
+export const userInfoSchema = z.object({
+  avatar: z.string(),
+  name: z.string(),
+  color: z.string(),
 });
 
-// TODO: It would be good to merge this with the first-class concept of `client`
-// that Replicache itself manages if possible.
-export const clientState = t.type({
-  cursor: t.type({
-    x: t.number,
-    y: t.number,
+export const clientStatePrefix = `clientState-`;
+
+export const clientStateKey = (id: string) => `${clientStatePrefix}${id}`;
+
+export const clientStateID = (key: string) => {
+  if (!key.startsWith(clientStatePrefix)) {
+    throw new Error(`Invalid key: ${key}`);
+  }
+  return key.substring(clientStatePrefix.length);
+};
+
+export const clientStateSchema = z.object({
+  id: z.string(),
+  cursor: z.object({
+    x: z.number(),
+    y: z.number(),
   }),
-  overID: t.string,
-  selectedID: t.string,
-  userInfo: userInfo,
+  overID: z.string(),
+  selectedID: z.string(),
+  userInfo: userInfoSchema,
 });
 
-export type UserInfo = t.TypeOf<typeof userInfo>;
-export type ClientState = t.TypeOf<typeof clientState>;
+export type UserInfo = z.TypeOf<typeof userInfoSchema>;
+export type ClientState = z.TypeOf<typeof clientStateSchema>;
+
+const clientStateValueSchema = clientStateSchema.omit({ id: true });
 
 export async function initClientState(
   tx: WriteTransaction,
   { id, defaultUserInfo }: { id: string; defaultUserInfo: UserInfo }
 ): Promise<void> {
-  if (await tx.has(key(id))) {
+  if (await tx.has(clientStateKey(id))) {
     return;
   }
   await putClientState(tx, {
     id,
-    clientState: {
-      cursor: {
-        x: 0,
-        y: 0,
-      },
-      overID: "",
-      selectedID: "",
-      userInfo: defaultUserInfo,
+    cursor: {
+      x: 0,
+      y: 0,
     },
+    overID: "",
+    selectedID: "",
+    userInfo: defaultUserInfo,
   });
 }
 
@@ -80,18 +89,21 @@ export async function getClientState(
   tx: ReadTransaction,
   id: string
 ): Promise<ClientState> {
-  const jv = await tx.get(key(id));
-  if (!jv) {
+  const val = await tx.get(clientStateKey(id));
+  if (val === undefined) {
     throw new Error("Expected clientState to be initialized already: " + id);
   }
-  return must(clientState.decode(jv));
+  return {
+    id,
+    ...clientStateValueSchema.parse(val),
+  };
 }
 
-export function putClientState(
+export async function putClientState(
   tx: WriteTransaction,
-  { id, clientState }: { id: string; clientState: ClientState }
+  clientState: ClientState
 ): Promise<void> {
-  return tx.put(key(id), clientState);
+  await tx.put(clientStateKey(clientState.id), clientState);
 }
 
 export async function setCursor(
@@ -101,25 +113,25 @@ export async function setCursor(
   const clientState = await getClientState(tx, id);
   clientState.cursor.x = x;
   clientState.cursor.y = y;
-  await putClientState(tx, { id, clientState });
+  await putClientState(tx, clientState);
 }
 
 export async function overShape(
   tx: WriteTransaction,
   { clientID, shapeID }: { clientID: string; shapeID: string }
 ): Promise<void> {
-  const client = await getClientState(tx, clientID);
-  client.overID = shapeID;
-  await putClientState(tx, { id: clientID, clientState: client });
+  const clientState = await getClientState(tx, clientID);
+  clientState.overID = shapeID;
+  await putClientState(tx, clientState);
 }
 
 export async function selectShape(
   tx: WriteTransaction,
   { clientID, shapeID }: { clientID: string; shapeID: string }
 ): Promise<void> {
-  const client = await getClientState(tx, clientID);
-  client.selectedID = shapeID;
-  await putClientState(tx, { id: clientID, clientState: client });
+  const clientState = await getClientState(tx, clientID);
+  clientState.selectedID = shapeID;
+  await putClientState(tx, clientState);
 }
 
 export function randUserInfo(): UserInfo {
@@ -130,9 +142,3 @@ export function randUserInfo(): UserInfo {
     color: colors[randInt(0, colors.length - 1)],
   };
 }
-
-function key(id: string): string {
-  return `${clientStatePrefix}${id}`;
-}
-
-export const clientStatePrefix = `client-state-`;
