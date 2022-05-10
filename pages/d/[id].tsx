@@ -39,14 +39,20 @@ export default function Home() {
         }
       };
 
-      Pusher.logToConsole = true;
-      var pusher = new Pusher("d56ed6dcf532b5fb344d", {
-        cluster: "mt1",
-      });
-      var channel = pusher.subscribe("default");
-      channel.bind("poke", function (data: unknown) {
-        r.pull();
-      });
+      if (
+        process.env.NEXT_PUBLIC_PUSHER_KEY &&
+        process.env.NEXT_PUBLIC_PUSHER_CLUSTER
+      ) {
+        Pusher.logToConsole = true;
+        const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
+          cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
+        });
+
+        const channel = pusher.subscribe("default");
+        channel.bind("poke", () => {
+          r.pull();
+        });
+      }
 
       setRep(r);
     })();
