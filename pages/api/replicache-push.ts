@@ -96,19 +96,27 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
   console.log("Processed all mutations in", Date.now() - t0);
 
-  const pusher = new Pusher({
-    appId: "1407203",
-    key: "d56ed6dcf532b5fb344d",
-    secret: "12853972ceb8e1f63411",
-    cluster: "mt1",
-    useTLS: true,
-  });
+  if (
+    process.env.NEXT_PUBLIC_PUSHER_APP_ID &&
+    process.env.NEXT_PUBLIC_PUSHER_KEY &&
+    process.env.NEXT_PUBLIC_PUSHER_SECRET &&
+    process.env.NEXT_PUBLIC_PUSHER_CLUSTER
+  ) {
+    const startPoke = Date.now();
 
-  const t2 = Date.now();
-  // We need to await here otherwise, Next.js will frequently kill the request
-  // and the poke won't get sent.
-  await pusher.trigger("default", "poke", {});
-  console.log("Sent poke in", Date.now() - t2);
+    const pusher = new Pusher({
+      appId: process.env.NEXT_PUBLIC_PUSHER_APP_ID,
+      key: process.env.NEXT_PUBLIC_PUSHER_KEY,
+      secret: process.env.NEXT_PUBLIC_PUSHER_SECRET,
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
+      useTLS: true,
+    });
+
+    await pusher.trigger("default", "poke", {});
+    console.log("Poke took", Date.now() - startPoke);
+  } else {
+    console.log("Not poking because Pusher is not configured");
+  }
 
   res.status(200).json({});
   console.log("Processing push took", Date.now() - t0);
