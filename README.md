@@ -7,33 +7,24 @@ Built with [Replicache](https://replicache.dev), [Next.js](https://nextjs.org/),
 
 Running live at https://replidraw.herokuapp.com/.
 
+# Prerequisites
+
+* **Replicache License Key:** Get one at https://doc.replicache.dev/licensing.
+* **PostgreSQL:** For MacOS, run `brew install postgres`. For other platforms, see https://www.postgresql.org/download/.
+* **A Pusher account:** Sign up for a free account at [pusher.com](https://pusher.com).
+
 # To run locally
 
 ```
-# Get a Replicache license key.
-npx replicache get-license
+# Create a new database for Replidraw
+psql -d postgres -c 'create database replidraw'
 
-# Install supabase cli, if you don't already have it.
-# For MacOS:
-brew install supabase/tap/supabase
-# For other platforms, see:
-# https://github.com/supabase/cli#getting-started
-
-# Initialize supabase.
-supabase init
-
-# Docker is required for supabase, if you need it see:
-# https://docs.docker.com/engine/install/
-
-# Start supabase. If you are already running supabase for another
-# application, first run `supabase stop` before running the
-# following command so it will output the config values.
-supabase start
-
-# Use license key printed out by `npx replicache get-license`.
-export NEXT_PUBLIC_REPLICACHE_LICENSE_KEY="<license key>"
-# Use URLs and keys printed out by `supabase start`.
-export DATABASE_URL="<DB URL>"
+export NEXT_PUBLIC_REPLICACHE_LICENSE_KEY="<your license key>"
+export PGDATABASE="replidraw"
+NEXT_PUBLIC_PUSHER_APP_ID=<appid>
+NEXT_PUBLIC_PUSHER_KEY=<pusherkey>
+NEXT_PUBLIC_PUSHER_SECRET=<pushersecret>
+NEXT_PUBLIC_PUSHER_CLUSTER=<pushercluster>
 
 npm run dev
 ```
