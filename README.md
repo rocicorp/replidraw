@@ -21,10 +21,10 @@ psql -d postgres -c 'create database replidraw'
 
 export NEXT_PUBLIC_REPLICACHE_LICENSE_KEY="<your license key>"
 export PGDATABASE="replidraw"
-NEXT_PUBLIC_PUSHER_APP_ID=<appid>
-NEXT_PUBLIC_PUSHER_KEY=<pusherkey>
-NEXT_PUBLIC_PUSHER_SECRET=<pushersecret>
-NEXT_PUBLIC_PUSHER_CLUSTER=<pushercluster>
+export NEXT_PUBLIC_PUSHER_APP_ID=<appid>
+export NEXT_PUBLIC_PUSHER_KEY=<pusherkey>
+export NEXT_PUBLIC_PUSHER_SECRET=<pushersecret>
+export NEXT_PUBLIC_PUSHER_CLUSTER=<pushercluster>
 
 npm run dev
 ```
