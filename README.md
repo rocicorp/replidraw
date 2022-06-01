@@ -9,9 +9,9 @@ Running live at https://replidraw.herokuapp.com/.
 
 # Prerequisites
 
-* **Replicache License Key:** Get one at https://doc.replicache.dev/licensing.
-* **PostgreSQL:** For MacOS, run `brew install postgres`. For other platforms, see https://www.postgresql.org/download/.
-* **A Pusher account:** Sign up for a free account at [pusher.com](https://pusher.com).
+1. [Get a Replicache license key](https://doc.replicache.dev/licensing)
+2. [Install PostgreSQL](https://www.postgresql.org/download/)
+3. [Sign up for a free pusher.com account](https://pusher.com/)
 
 # To run locally
 
