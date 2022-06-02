@@ -3,7 +3,7 @@
 A tiny Figma-like multiplayer graphics editor.
 
 Built with [Replicache](https://replicache.dev), [Next.js](https://nextjs.org/),
-[Pusher](https://pusher.com/), and [Postgres](https://mysql.com/).
+[Pusher](https://pusher.com/), and [Postgres](https://www.postgresql.org/).
 
 Running live at https://replidraw.herokuapp.com/.
 
