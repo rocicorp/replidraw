@@ -22,7 +22,7 @@
     "react-dom": "17.0.2",
     "react-draggable": "^4.4.5",
     "react-hotkeys": "^2.0.0",
-    "replicache": "10.0.0",
+    "replicache": "^11.0.0",
     "replicache-react": "^2.7.0",
     "zod": "^3.13.4"
   },
