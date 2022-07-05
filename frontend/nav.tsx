@@ -7,8 +7,16 @@ import Form from "react-bootstrap/Form";
 import { useUserInfo } from "./subscriptions";
 import { Replicache } from "replicache";
 import { M } from "./mutators";
+import { UndoManager } from "@rocicorp/undo";
+import { UndoRedo } from "./undo-redo";
 
-export function Nav({ rep }: { rep: Replicache<M> }) {
+type NavProps = {
+  rep: Replicache<M>;
+  undoManager: UndoManager;
+  canUndoRedo: { canUndo: boolean; canRedo: boolean };
+};
+
+export function Nav({ rep, undoManager, canUndoRedo }: NavProps) {
   const [aboutVisible, showAbout] = useState(false);
   const [shareVisible, showShare] = useState(false);
   const urlBox = useRef<HTMLInputElement>(null);
@@ -21,7 +29,10 @@ export function Nav({ rep }: { rep: Replicache<M> }) {
   });
 
   const onRectangle = () => {
-    rep.mutate.createShape(randomShape());
+    const shape = randomShape();
+    const execute = () => rep.mutate.createShape(shape);
+    const undo = () => rep.mutate.deleteShape(shape.id);
+    undoManager.add({ execute, undo });
   };
 
   return (
@@ -45,6 +56,19 @@ export function Nav({ rep }: { rep: Replicache<M> }) {
             ></path>
           </svg>
         </div>
+        <UndoRedo
+          onClick={() => {
+            undoManager.undo();
+          }}
+          title="Undo"
+          canUndoRedo={canUndoRedo}
+        />
+        <UndoRedo
+          isRedo={true}
+          onClick={() => undoManager.redo()}
+          title="Redo"
+          canUndoRedo={canUndoRedo}
+        />
         {/*
         <div
           className={styles.button}

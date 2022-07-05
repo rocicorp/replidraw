@@ -6,10 +6,15 @@ import Pusher from "pusher-js";
 import { M, mutators } from "../../frontend/mutators";
 import { randUserInfo } from "../../frontend/client-state";
 import { randomShape } from "../../frontend/shape";
+import { UndoManager } from "@rocicorp/undo";
 
 export default function Home() {
   const [rep, setRep] = useState<Replicache<M> | null>(null);
-
+  const [undoManager, setUndoManager] = useState<UndoManager | null>(null);
+  const [canUndoRedo, setCanUndoRedo] = useState({
+    canUndo: false,
+    canRedo: false,
+  });
   // TODO: Think through Replicache + SSR.
   useEffect(() => {
     (async () => {
@@ -53,12 +58,16 @@ export default function Home() {
           r.pull();
         });
       }
-
+      setUndoManager(
+        new UndoManager({
+          onChange: setCanUndoRedo,
+        })
+      );
       setRep(r);
     })();
   }, []);
 
-  if (!rep) {
+  if (!rep || !undoManager) {
     return null;
   }
 
@@ -75,8 +84,8 @@ export default function Home() {
         background: "rgb(229,229,229)",
       }}
     >
-      <Nav rep={rep} />
-      <Designer {...{ rep }} />
+      <Nav rep={rep} canUndoRedo={canUndoRedo} undoManager={undoManager} />
+      <Designer {...{ rep, undoManager }} />
     </div>
   );
 }

@@ -24,6 +24,7 @@ export const shapeSchema = z.object({
   height: z.number(),
   rotate: z.number(),
   fill: z.string(),
+  animate: z.boolean(),
 });
 
 export type Shape = z.TypeOf<typeof shapeSchema>;
@@ -61,19 +62,25 @@ export async function deleteShape(
 
 export async function moveShape(
   tx: WriteTransaction,
-  { id, dx, dy }: { id: string; dx: number; dy: number }
+  {
+    id,
+    dx,
+    dy,
+    animate = true,
+  }: { id: string; dx: number; dy: number; animate?: boolean }
 ): Promise<void> {
   const shape = await getShape(tx, id);
   if (shape) {
     shape.x += dx;
     shape.y += dy;
+    shape.animate = animate;
     await putShape(tx, shape);
   }
 }
 
 export async function resizeShape(
   tx: WriteTransaction,
-  { id, ds }: { id: string; ds: number }
+  { id, ds, animate = true }: { id: string; ds: number; animate?: boolean }
 ): Promise<void> {
   const shape = await getShape(tx, id);
   if (shape) {
@@ -84,17 +91,19 @@ export async function resizeShape(
     shape.height += dh;
     shape.x -= dw / 2;
     shape.y -= dh / 2;
+    shape.animate = animate;
     await putShape(tx, shape);
   }
 }
 
 export async function rotateShape(
   tx: WriteTransaction,
-  { id, ddeg }: { id: string; ddeg: number }
+  { id, ddeg, animate = true }: { id: string; ddeg: number; animate?: boolean }
 ): Promise<void> {
   const shape = await getShape(tx, id);
   if (shape) {
     shape.rotate += ddeg;
+    shape.animate = animate;
     await putShape(tx, shape);
   }
 }
@@ -131,5 +140,6 @@ export function randomShape() {
     height: s,
     rotate: randInt(0, 359),
     fill,
+    animate: false,
   } as Shape;
 }
