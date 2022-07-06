@@ -28,7 +28,11 @@ const pushRequestSchema = z.object({
 
 export default async (req: NextApiRequest, res: NextApiResponse) => {
   console.log("Processing push", JSON.stringify(req.body, null, ""));
-
+  if (!req.query["spaceID"]) {
+    res.status(400).send("Missing spaceID");
+    res.end();
+    return;
+  }
   const t0 = Date.now();
 
   const spaceID = req.query["spaceID"].toString();
