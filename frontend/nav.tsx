@@ -57,9 +57,7 @@ export function Nav({ rep, undoManager, canUndoRedo }: NavProps) {
           </svg>
         </div>
         <UndoRedo
-          onClick={() => {
-            undoManager.undo();
-          }}
+          onClick={() => undoManager.undo()}
           title="Undo"
           canUndoRedo={canUndoRedo}
         />

@@ -87,23 +87,24 @@ export function Selection({
       d.x - d.deltaX - shapeCenter.x
     );
     const after = Math.atan2(offsetY - shapeCenter.y, d.x - shapeCenter.x);
+    const ddeg = ((after - before) * 180) / Math.PI;
     rep.mutate.rotateShape({
       id,
-      ddeg: ((after - before) * 180) / Math.PI,
+      ddeg,
     });
 
     undoManager.add({
       redo: () => {
         rep.mutate.rotateShape({
           id,
-          ddeg: ((after - before) * 180) / Math.PI,
+          ddeg,
           animate: false,
         });
       },
       undo: () => {
         rep.mutate.rotateShape({
           id,
-          ddeg: -(((after - before) * 180) / Math.PI),
+          ddeg: -ddeg,
           animate: false,
         });
       },
