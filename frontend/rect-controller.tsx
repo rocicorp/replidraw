@@ -3,15 +3,18 @@ import { DraggableCore, DraggableEvent, DraggableData } from "react-draggable";
 import { useShapeByID } from "./subscriptions";
 import { Replicache } from "replicache";
 import { M } from "./mutators";
+import type { UndoManager } from "@rocicorp/undo";
 
 // TODO: In the future I imagine this becoming ShapeController and
 // there also be a Shape that wraps Rect and also knows how to draw Circle, etc.
 export function RectController({
   rep,
   id,
+  undoManager,
 }: {
   rep: Replicache<M>;
   id: string;
+  undoManager: UndoManager;
 }) {
   const shape = useShapeByID(rep, id);
 
@@ -23,6 +26,7 @@ export function RectController({
   const onDragStart = (e: DraggableEvent, d: DraggableData) => {
     // Can't mark onDragStart async because it changes return type and onDragStart
     // must return void.
+    undoManager.startGroup();
     const blech = async () => {
       rep.mutate.selectShape({ clientID: await rep.clientID, shapeID: id });
     };
@@ -40,7 +44,29 @@ export function RectController({
       id,
       dx: d.deltaX,
       dy: d.deltaY,
+      animate: true,
     });
+    undoManager.add({
+      undo: () => {
+        return rep.mutate.moveShape({
+          id,
+          dx: -d.deltaX,
+          dy: -d.deltaY,
+          animate: false,
+        });
+      },
+      redo: () => {
+        return rep.mutate.moveShape({
+          id,
+          dx: d.deltaX,
+          dy: d.deltaY,
+          animate: false,
+        });
+      },
+    });
+  };
+  const onDragStop = (_e: DraggableEvent, _d: DraggableData) => {
+    undoManager.endGroup();
   };
 
   if (!shape) {
@@ -48,7 +74,7 @@ export function RectController({
   }
 
   return (
-    <DraggableCore onStart={onDragStart} onDrag={onDrag}>
+    <DraggableCore onStart={onDragStart} onDrag={onDrag} onStop={onDragStop}>
       <div>
         <Rect
           {...{

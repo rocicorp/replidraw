@@ -15,13 +15,12 @@ Running live at https://replidraw.herokuapp.com/.
 
 # To run locally
 
-Get the Pusher environment variables from the ["App Keys" section](https://i.imgur.com/7DNmTKZ.png
-) of the Pusher App UI.
+Get the Pusher environment variables from the ["App Keys" section](https://i.imgur.com/7DNmTKZ.png) of the Pusher App UI.
 
 **Note:** These instructions assume you installed PostgreSQL via Postgres.app on MacOS. If you installed some other way, or configured PostgreSQL specially, you may additionally need to set the `PGUSER` and `PGPASSWORD` environment variables.</p>
 
 ```
-export PGDATABASE="replidraw"
+export DATABASE_URL=postgresql://<pguser>:<pgpass>@localhost:<pgport>/replidraw
 export NEXT_PUBLIC_REPLICACHE_LICENSE_KEY="<your license key>"
 export NEXT_PUBLIC_PUSHER_APP_ID=<appid>
 export NEXT_PUBLIC_PUSHER_KEY=<pusherkey>

@@ -14,8 +14,16 @@ import {
 } from "./subscriptions";
 import { Replicache } from "replicache";
 import { M } from "./mutators";
+import type { UndoManager } from "@rocicorp/undo";
+import { getShape, Shape } from "./shape";
 
-export function Designer({ rep }: { rep: Replicache<M> }) {
+export function Designer({
+  rep,
+  undoManager,
+}: {
+  rep: Replicache<M>;
+  undoManager: UndoManager;
+}) {
   const ids = useShapeIDs(rep);
   const overID = useOverShapeID(rep);
   const selectedID = useSelectedShapeID(rep);
@@ -24,15 +32,63 @@ export function Designer({ rep }: { rep: Replicache<M> }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState(false);
 
+  const move = async (
+    dx: number = 0,
+    dy: number = 0,
+    animate: boolean = true
+  ) => {
+    await rep.mutate.moveShape({ id: selectedID, dx, dy, animate });
+  };
+
   const handlers = {
-    moveLeft: () => rep.mutate.moveShape({ id: selectedID, dx: -20, dy: 0 }),
-    moveRight: () => rep.mutate.moveShape({ id: selectedID, dx: 20, dy: 0 }),
-    moveUp: () => rep.mutate.moveShape({ id: selectedID, dx: 0, dy: -20 }),
-    moveDown: () => rep.mutate.moveShape({ id: selectedID, dx: 0, dy: 20 }),
-    deleteShape: () => {
+    moveLeft: () => {
+      move(-20, 0);
+      undoManager.add({
+        redo: () => move(-20, 0, false),
+        undo: () => move(20, 0, false),
+      });
+    },
+    moveRight: () => {
+      move(20, 0);
+      undoManager.add({
+        redo: () => move(20, 0, false),
+        undo: () => move(-20, 0, false),
+      });
+    },
+    moveUp: () => {
+      move(0, -20);
+      undoManager.add({
+        redo: () => move(0, -20, false),
+        undo: () => move(0, 20, false),
+      });
+    },
+    moveDown: () => {
+      move(0, 20);
+      undoManager.add({
+        redo: () => move(0, 20, false),
+        undo: () => move(0, -20, false),
+      });
+    },
+    deleteShape: async () => {
       // Prevent navigating backward on some browsers.
       event?.preventDefault();
-      rep.mutate.deleteShape(selectedID);
+      const shapeBeforeDelete = await rep.query((tx) =>
+        getShape(tx, selectedID)
+      );
+      const deleteShape = () => rep.mutate.deleteShape(selectedID);
+      const createShape = () => {
+        rep.mutate.createShape(shapeBeforeDelete as Shape);
+      };
+      undoManager.add({
+        execute: deleteShape,
+        undo: createShape,
+      });
+    },
+    undo: () => {
+      undoManager.undo();
+    },
+    redo: () => {
+      undoManager.redo();
     },
   };
 
@@ -84,6 +140,7 @@ export function Designer({ rep }: { rep: Replicache<M> }) {
                 key: `shape-${id}`,
                 rep,
                 id,
+                undoManager,
               }}
             />
           ))}
@@ -112,6 +169,7 @@ export function Designer({ rep }: { rep: Replicache<M> }) {
                   id: selectedID,
                   highlight: true,
                   containerOffsetTop: ref.current && ref.current.offsetTop,
+                  undoManager,
                 }}
               />
             )
@@ -144,4 +202,6 @@ const keyMap = {
   moveUp: ["up", "shift+up"],
   moveDown: ["down", "shift+down"],
   deleteShape: ["del", "backspace"],
+  undo: ["ctrl+z", "command+z"],
+  redo: ["ctrl+y", "command+shift+z"],
 };

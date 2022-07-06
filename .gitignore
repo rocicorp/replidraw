@@ -42,3 +42,7 @@ lib
 **/supabase/.temp
 **/supabase/.env
 supabase/config.toml
+
+.env
+
+

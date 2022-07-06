@@ -3,15 +3,18 @@ import { useShape } from "./smoothie";
 import { DraggableCore, DraggableEvent, DraggableData } from "react-draggable";
 import { Replicache } from "replicache";
 import { M } from "./mutators";
+import type { UndoManager } from "@rocicorp/undo";
 
 export function Selection({
   rep,
   id,
   containerOffsetTop,
+  undoManager,
 }: {
   rep: Replicache<M>;
   id: string;
   containerOffsetTop: number | null;
+  undoManager: UndoManager;
 }) {
   const coords = useShape(rep, id);
   const gripSize = 19;
@@ -21,6 +24,14 @@ export function Selection({
       x: coords.x + coords.w / 2,
       y: coords.y + coords.h / 2,
     };
+  };
+
+  const onResizeStart = (_e: DraggableEvent, _d: DraggableData) => {
+    undoManager.startGroup();
+  };
+
+  const onResizeEnd = (_e: DraggableEvent, _d: DraggableData) => {
+    undoManager.endGroup();
   };
 
   const onResize = (e: DraggableEvent, d: DraggableData) => {
@@ -45,6 +56,22 @@ export function Selection({
     const s1 = size(shapeCenter.x, d.x, shapeCenter.y, d.y);
 
     rep.mutate.resizeShape({ id, ds: s1 - s0 });
+    undoManager.add({
+      redo: () => {
+        rep.mutate.resizeShape({ id, ds: s1 - s0, animate: false });
+      },
+      undo: () => {
+        rep.mutate.resizeShape({ id, ds: s0 - s1, animate: false });
+      },
+    });
+  };
+
+  const onRotateStart = (_e: DraggableEvent, _d: DraggableData) => {
+    undoManager.startGroup();
+  };
+
+  const onRotateEnd = (_e: DraggableEvent, _d: DraggableData) => {
+    undoManager.endGroup();
   };
 
   const onRotate = (e: DraggableEvent, d: DraggableData) => {
@@ -60,8 +87,28 @@ export function Selection({
       d.x - d.deltaX - shapeCenter.x
     );
     const after = Math.atan2(offsetY - shapeCenter.y, d.x - shapeCenter.x);
+    const ddeg = ((after - before) * 180) / Math.PI;
+    rep.mutate.rotateShape({
+      id,
+      ddeg,
+    });
 
-    rep.mutate.rotateShape({ id, ddeg: ((after - before) * 180) / Math.PI });
+    undoManager.add({
+      redo: () => {
+        rep.mutate.rotateShape({
+          id,
+          ddeg,
+          animate: false,
+        });
+      },
+      undo: () => {
+        rep.mutate.rotateShape({
+          id,
+          ddeg: -ddeg,
+          animate: false,
+        });
+      },
+    });
   };
 
   if (!coords) {
@@ -88,7 +135,11 @@ export function Selection({
           pointerEvents: "none",
         }}
       >
-        <DraggableCore onDrag={onResize}>
+        <DraggableCore
+          onDrag={onResize}
+          onStart={onResizeStart}
+          onStop={onResizeEnd}
+        >
           <svg
             width={gripSize}
             height={gripSize}
@@ -110,7 +161,11 @@ export function Selection({
             />
           </svg>
         </DraggableCore>
-        <DraggableCore onDrag={onRotate}>
+        <DraggableCore
+          onDrag={onRotate}
+          onStart={onRotateStart}
+          onStop={onRotateEnd}
+        >
           <svg
             width={gripSize}
             height={gripSize}

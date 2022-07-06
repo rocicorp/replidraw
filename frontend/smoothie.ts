@@ -18,7 +18,10 @@ export function useCursor(
     `cursor/${clientID}`,
     async (tx: ReadTransaction) => {
       const clientState = await getClientState(tx, clientID);
-      return [clientState.cursor.x, clientState.cursor.y];
+      return {
+        animate: true,
+        values: [clientState.cursor.x, clientState.cursor.y],
+      };
     }
   );
   useListener(smoothie, setValues, clientID);
@@ -41,7 +44,10 @@ export function useShape(rep: Replicache, shapeID: string) {
     async (tx: ReadTransaction) => {
       const shape = await getShape(tx, shapeID);
       return shape
-        ? [shape.x, shape.y, shape.width, shape.height, shape.rotate]
+        ? {
+            animate: shape.animate,
+            values: [shape.x, shape.y, shape.width, shape.height, shape.rotate],
+          }
         : null;
     }
   );
@@ -71,7 +77,7 @@ type Animation = {
 type Listener = (current: Array<number> | null) => void;
 type SubscriptionFunction = (
   tx: ReadTransaction
-) => Promise<Array<number> | null>;
+) => Promise<{ animate: boolean; values: Array<number> } | null>;
 
 const minAnimationDuration = 50;
 const maxAnimationDuration = 5000;
@@ -116,7 +122,7 @@ class Smoothie {
   private rep: Replicache;
 
   // The target values we're currently animating to.
-  private latestTargets: Array<number> | null = null;
+  private latestTargetsValues: Array<number> | null = null;
 
   // The latest time the latestTargets changed.
   private latestTimestamp = 0;
@@ -141,33 +147,33 @@ class Smoothie {
           return;
         }
 
-        if (this.latestTargets == null) {
-          this.jumpTo(targets, now);
+        if (this.latestTargetsValues == null) {
+          this.jumpTo(targets.values, now);
           return;
         }
 
-        if (!shallowEqual(targets, this.latestTargets)) {
-          if (targets.length != this.latestTargets.length) {
+        if (!shallowEqual(targets.values, this.latestTargetsValues)) {
+          if (targets.values.length != this.latestTargetsValues.length) {
             console.info("Number of targets changed - ignoring");
             return;
           }
 
           let duration = now - this.latestTimestamp;
-          if (duration < minAnimationDuration) {
+          if (duration < minAnimationDuration || targets.animate === false) {
             // If the time since last frame is very short, it looks better to
             // skip the animation. This mainly happens with frames generated
             // locally.
-            this.jumpTo(targets, now);
+            this.jumpTo(targets.values, now);
           } else if (!this.currentAnimation) {
             // Otherwise if there's no current animation running, start one.
             this.currentAnimation = {
-              startValues: this.latestTargets,
-              targetValues: targets,
-              startVelocities: targets.map((_) => 0),
-              targetVelocities: targets.map((_) => 0),
+              startValues: this.latestTargetsValues,
+              targetValues: targets.values,
+              startVelocities: targets.values.map((_) => 0),
+              targetVelocities: targets.values.map((_) => 0),
               startTime: now,
               duration: this.frameDuration(now),
-              currentValues: this.latestTargets,
+              currentValues: this.latestTargetsValues,
               timerID: this.scheduleAnimate(),
             };
           } else {
@@ -189,16 +195,16 @@ class Smoothie {
             );
             this.currentAnimation = {
               startValues: this.currentAnimation.currentValues,
-              targetValues: targets,
+              targetValues: targets.values,
               startVelocities,
-              targetVelocities: targets.map((_) => 0),
+              targetVelocities: targets.values.map((_) => 0),
               startTime: now,
               duration: this.frameDuration(now),
               currentValues: this.currentAnimation.currentValues,
               timerID: this.scheduleAnimate(),
             };
           }
-          this.latestTargets = targets;
+          this.latestTargetsValues = targets.values;
           this.latestTimestamp = now;
         }
       },
@@ -209,7 +215,7 @@ class Smoothie {
     this.currentAnimation &&
       cancelAnimationFrame(this.currentAnimation.timerID);
     this.currentAnimation = null;
-    this.latestTargets = targets;
+    this.latestTargetsValues = targets;
     this.latestTimestamp = now;
     this.fire();
   }
@@ -248,8 +254,8 @@ class Smoothie {
   private getCurrentValues(): Array<number> | null {
     if (this.currentAnimation) {
       return this.currentAnimation.currentValues;
-    } else if (this.latestTargets) {
-      return this.latestTargets;
+    } else if (this.latestTargetsValues) {
+      return this.latestTargetsValues;
     } else {
       return null;
     }
