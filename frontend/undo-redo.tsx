@@ -13,9 +13,13 @@ export function UndoRedo({
   canUndoRedo,
 }: UndoRedoProps) {
   return (
-    <div className={styles.button} title={title} onClick={onClick}>
+    <div
+      className={styles.button}
+      title={title}
+      onClick={onClick}
+      style={{ transform: isRedo ? "scale(-1, 1)" : "" }}
+    >
       <UndoRedoSvg
-        isRedo={isRedo}
         isDisabled={isRedo ? !canUndoRedo.canRedo : !canUndoRedo.canUndo}
       />
     </div>
@@ -23,11 +27,10 @@ export function UndoRedo({
 }
 
 type UndoRedoSvgProps = {
-  isRedo: boolean;
   isDisabled: boolean;
 };
 
-function UndoRedoSvg({ isRedo, isDisabled }: UndoRedoSvgProps): JSX.Element {
+function UndoRedoSvg({ isDisabled }: UndoRedoSvgProps): JSX.Element {
   return (
     <svg
       x="0px"
@@ -35,7 +38,6 @@ function UndoRedoSvg({ isRedo, isDisabled }: UndoRedoSvgProps): JSX.Element {
       width="18px"
       height="18px"
       viewBox="0 0 454.839 454.839"
-      transform={isRedo ? "scale(-1, 1)" : ""}
     >
       <path
         d="M404.908,283.853c0,94.282-76.71,170.986-170.986,170.986h-60.526c-10.03,0-18.158-8.127-18.158-18.157v-6.053
