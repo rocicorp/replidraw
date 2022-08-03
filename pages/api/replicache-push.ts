@@ -16,6 +16,7 @@ import Pusher from "pusher";
 // TODO: Either generate schema from mutator types, or vice versa, to tighten this.
 // See notes in bug: https://github.com/rocicorp/replidraw/issues/47
 const mutationSchema = z.object({
+  clientID: z.string(),
   id: z.number(),
   name: z.string(),
   args: jsonSchema,
@@ -27,7 +28,10 @@ const pushRequestSchema = z.object({
 });
 
 export default async (req: NextApiRequest, res: NextApiResponse) => {
-  console.log("Processing push", JSON.stringify(req.body, null, ""));
+  console.log(
+    "Processing push",
+    JSON.stringify(req.body, null, "").substring(0, 20)
+  );
   if (!req.query["spaceID"]) {
     res.status(400).send("Missing spaceID");
     res.end();
@@ -43,11 +47,8 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
     const prevVersion = (await getCookie(executor, spaceID)) ?? 0;
     const nextVersion = prevVersion + 1;
-    let lastMutationID =
-      (await getLastMutationID(executor, push.clientID)) ?? 0;
 
     console.log("prevVersion: ", prevVersion);
-    console.log("lastMutationID:", lastMutationID);
 
     const tx = new ReplicacheTransaction(
       executor,
@@ -55,9 +56,17 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
       push.clientID,
       nextVersion
     );
+    const lastMutationIDs: Record<string, number> = {};
 
     for (let i = 0; i < push.mutations.length; i++) {
       const mutation = push.mutations[i];
+      let lastMutationID = lastMutationIDs[mutation.clientID];
+      if (lastMutationID === undefined) {
+        lastMutationIDs[mutation.clientID] =
+          (await getLastMutationID(executor, mutation.clientID)) ?? 0;
+        lastMutationID = lastMutationIDs[mutation.clientID];
+      }
+      console.log("lastMutationID:", lastMutationID);
       const expectedMutationID = lastMutationID + 1;
 
       if (mutation.id < expectedMutationID) {
@@ -71,7 +80,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
         break;
       }
 
-      console.log("Processing mutation:", JSON.stringify(mutation, null, ""));
+      // console.log("Processing mutation:", JSON.stringify(mutation, null, ""));
 
       const t1 = Date.now();
       const mutator = (mutators as any)[mutation.name];
@@ -87,12 +96,19 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
         );
       }
 
-      lastMutationID = expectedMutationID;
-      console.log("Processed mutation in", Date.now() - t1);
+      lastMutationIDs[mutation.clientID] = expectedMutationID;
+      // console.log("Processed mutation in", Date.now() - t1);
+    }
+
+    const mutationIDUpdatePromises = [];
+    for (const [clientID, lastMutationID] of Object.entries(lastMutationIDs)) {
+      mutationIDUpdatePromises.push(
+        setLastMutationID(executor, clientID, lastMutationID)
+      );
     }
 
     await Promise.all([
-      setLastMutationID(executor, push.clientID, lastMutationID),
+      ...mutationIDUpdatePromises,
       setCookie(executor, spaceID, nextVersion),
       tx.flush(),
     ]);

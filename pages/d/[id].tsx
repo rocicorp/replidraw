@@ -7,6 +7,7 @@ import { M, mutators } from "../../frontend/mutators";
 import { randUserInfo } from "../../frontend/client-state";
 import { randomShape } from "../../frontend/shape";
 import { UndoManager } from "@rocicorp/undo";
+import { debug } from "console";
 
 export default function Home() {
   const [rep, setRep] = useState<Replicache<M> | null>(null);
@@ -28,7 +29,9 @@ export default function Home() {
         licenseKey: process.env.NEXT_PUBLIC_REPLICACHE_LICENSE_KEY!,
         pushURL: `/api/replicache-push?spaceID=${docID}`,
         pullURL: `/api/replicache-pull?spaceID=${docID}`,
+        pullInterval: 10000,
         name: docID,
+        logLevel: "info",
         mutators,
       });
 
