@@ -7,6 +7,7 @@ import { M, mutators } from "../../frontend/mutators";
 import { randUserInfo } from "../../frontend/client-state";
 import { randomShape } from "../../frontend/shape";
 import { UndoManager } from "@rocicorp/undo";
+import { useRouter } from "next/router";
 
 export default function Home() {
   const [rep, setRep] = useState<Replicache<M> | null>(null);
@@ -15,6 +16,9 @@ export default function Home() {
     canUndo: false,
     canRedo: false,
   });
+  const router = useRouter();
+  const { hideNav } = router.query;
+
   // TODO: Think through Replicache + SSR.
   useEffect(() => {
     (async () => {
@@ -84,7 +88,9 @@ export default function Home() {
         background: "rgb(229,229,229)",
       }}
     >
-      <Nav rep={rep} canUndoRedo={canUndoRedo} undoManager={undoManager} />
+      {!hideNav && (
+        <Nav rep={rep} canUndoRedo={canUndoRedo} undoManager={undoManager} />
+      )}
       <Designer {...{ rep, undoManager }} />
     </div>
   );
