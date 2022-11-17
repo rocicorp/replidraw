@@ -16,12 +16,12 @@ export function Rect({
 }: {
   rep: Replicache<M>;
   id: string;
-  highlight?: boolean;
-  highlightColor?: string;
-  onMouseDown?: MouseEventHandler;
-  onTouchStart?: TouchEventHandler;
-  onMouseEnter?: MouseEventHandler;
-  onMouseLeave?: MouseEventHandler;
+  highlight?: boolean | undefined;
+  highlightColor?: string | undefined;
+  onMouseDown?: MouseEventHandler | undefined;
+  onTouchStart?: TouchEventHandler | undefined;
+  onMouseEnter?: MouseEventHandler | undefined;
+  onMouseLeave?: MouseEventHandler | undefined;
 }) {
   const shape = useShapeByID(rep, id);
   const coords = useShape(rep, id);
@@ -34,6 +34,7 @@ export function Rect({
     onMouseDown || onTouchStart || onMouseEnter || onMouseLeave;
 
   return (
+    // @ts-expect-error @types/react-dom is too old to be correct
     <svg
       {...{
         style: {

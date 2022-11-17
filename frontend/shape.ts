@@ -27,7 +27,7 @@ export const shapeSchema = z.object({
   animate: z.boolean(),
 });
 
-export type Shape = z.TypeOf<typeof shapeSchema>;
+export type Shape = Readonly<z.TypeOf<typeof shapeSchema>>;
 
 const shapeValueSchema = shapeSchema.omit({ id: true });
 
@@ -71,10 +71,12 @@ export async function moveShape(
 ): Promise<void> {
   const shape = await getShape(tx, id);
   if (shape) {
-    shape.x += dx;
-    shape.y += dy;
-    shape.animate = animate;
-    await putShape(tx, shape);
+    await putShape(tx, {
+      ...shape,
+      x: shape.x + dx,
+      y: shape.y + dy,
+      animate,
+    });
   }
 }
 
@@ -87,12 +89,14 @@ export async function resizeShape(
     const minSize = 10;
     const dw = Math.max(minSize - shape.width, ds);
     const dh = Math.max(minSize - shape.height, ds);
-    shape.width += dw;
-    shape.height += dh;
-    shape.x -= dw / 2;
-    shape.y -= dh / 2;
-    shape.animate = animate;
-    await putShape(tx, shape);
+    await putShape(tx, {
+      ...shape,
+      width: shape.width + dw,
+      height: shape.height + dh,
+      x: shape.x - dw / 2,
+      y: shape.y - dh / 2,
+      animate,
+    });
   }
 }
 
@@ -102,9 +106,7 @@ export async function rotateShape(
 ): Promise<void> {
   const shape = await getShape(tx, id);
   if (shape) {
-    shape.rotate += ddeg;
-    shape.animate = animate;
-    await putShape(tx, shape);
+    await putShape(tx, { ...shape, rotate: shape.rotate + ddeg, animate });
   }
 }
 
