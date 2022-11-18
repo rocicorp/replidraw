@@ -7,13 +7,13 @@ import {
   mergeAsyncIterables,
   filterAsyncIterable,
   ReadonlyJSONValue,
-} from "replicache";
-import { delEntry, getEntries, getEntry, putEntry } from "./data";
-import { Executor } from "./pg";
+} from 'replicache';
+import {delEntry, getEntries, getEntry, putEntry} from './data';
+import type {Executor} from './pg';
 
 type CacheMap = Map<
   string,
-  { value: ReadonlyJSONValue | undefined; dirty: boolean }
+  {value: ReadonlyJSONValue | undefined; dirty: boolean}
 >;
 
 /**
@@ -31,7 +31,7 @@ export class ReplicacheTransaction implements WriteTransaction {
     executor: Executor,
     spaceID: string,
     clientID: string,
-    version: number
+    version: number,
   ) {
     this._spaceID = spaceID;
     this._clientID = clientID;
@@ -43,12 +43,13 @@ export class ReplicacheTransaction implements WriteTransaction {
     return this._clientID;
   }
 
+  // eslint-disable-next-line require-await
   async put(key: string, value: ReadonlyJSONValue): Promise<void> {
-    this._cache.set(key, { value, dirty: true });
+    this._cache.set(key, {value, dirty: true});
   }
   async del(key: string): Promise<boolean> {
     const had = await this.has(key);
-    this._cache.set(key, { value: undefined, dirty: true });
+    this._cache.set(key, {value: undefined, dirty: true});
     return had;
   }
   async get(key: string): Promise<ReadonlyJSONValue | undefined> {
@@ -57,7 +58,7 @@ export class ReplicacheTransaction implements WriteTransaction {
       return entry.value;
     }
     const value = await getEntry(this._executor, this._spaceID, key);
-    this._cache.set(key, { value, dirty: false });
+    this._cache.set(key, {value, dirty: false});
     return value;
   }
   async has(key: string): Promise<boolean> {
@@ -66,6 +67,7 @@ export class ReplicacheTransaction implements WriteTransaction {
   }
 
   async isEmpty(): Promise<boolean> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for await (const _ of this.scan()) {
       return false;
     }
@@ -74,10 +76,10 @@ export class ReplicacheTransaction implements WriteTransaction {
 
   scan(options: ScanOptions = {} as ScanNoIndexOptions) {
     if (isScanIndexOptions(options)) {
-      throw new Error("not implemented");
+      throw new Error('not implemented');
     }
 
-    const { _executor: executor, _spaceID: spaceID, _cache: cache } = this;
+    const {_executor: executor, _spaceID: spaceID, _cache: cache} = this;
 
     return makeScanResult<ScanNoIndexOptions>(options, (fromKey: string) => {
       const source = getEntries(executor, spaceID, fromKey);
@@ -85,7 +87,7 @@ export class ReplicacheTransaction implements WriteTransaction {
       const merged = mergeAsyncIterables(source, pending, entryCompare);
       const filtered = filterAsyncIterable(
         merged,
-        (entry) => entry[1] !== undefined
+        entry => entry[1] !== undefined,
       ) as AsyncIterable<readonly [string, ReadonlyJSONValue]>;
       return filtered;
     });
@@ -94,30 +96,29 @@ export class ReplicacheTransaction implements WriteTransaction {
   async flush(): Promise<void> {
     await Promise.all(
       [...this._cache.entries()]
-        .filter(([, { dirty }]) => dirty)
-        .map(([k, { value }]) => {
+        .filter(([, {dirty}]) => dirty)
+        .map(([k, {value}]) => {
           if (value === undefined) {
             return delEntry(this._executor, this._spaceID, k, this._version);
-          } else {
-            return putEntry(
-              this._executor,
-              this._spaceID,
-              k,
-              value,
-              this._version
-            );
           }
-        })
+          return putEntry(
+            this._executor,
+            this._spaceID,
+            k,
+            value,
+            this._version,
+          );
+        }),
     );
   }
 }
 
 function getCacheEntries(
   cache: CacheMap,
-  fromKey: string
+  fromKey: string,
 ): Iterable<readonly [string, ReadonlyJSONValue | undefined]> {
   const entries = [];
-  for (const [key, { value, dirty }] of cache) {
+  for (const [key, {value, dirty}] of cache) {
     if (dirty && stringCompare(key, fromKey) >= 0) {
       entries.push([key, value] as const);
     }
@@ -132,7 +133,7 @@ function stringCompare(a: string, b: string): number {
 
 function entryCompare(
   a: readonly [string, unknown],
-  b: readonly [string, unknown]
+  b: readonly [string, unknown],
 ): number {
   return stringCompare(a[0], b[0]);
 }

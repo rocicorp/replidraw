@@ -1,22 +1,22 @@
-import { useEffect, useRef, useState } from "react";
-import styles from "./nav.module.css";
-import { randomShape } from "../frontend/shape";
-import Modal from "react-bootstrap/Modal";
-import Button from "react-bootstrap/Button";
-import Form from "react-bootstrap/Form";
-import { useUserInfo } from "./subscriptions";
-import { Replicache } from "replicache";
-import { M } from "./mutators";
-import { UndoManager } from "@rocicorp/undo";
-import { UndoRedo } from "./undo-redo";
+import {useEffect, useRef, useState} from 'react';
+import styles from './nav.module.css';
+import {randomShape} from '../frontend/shape';
+import Modal from 'react-bootstrap/Modal';
+import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
+import {useUserInfo} from './subscriptions';
+import type {Replicache} from 'replicache';
+import type {M} from './mutators';
+import type {UndoManager} from '@rocicorp/undo';
+import {UndoRedo} from './undo-redo';
 
 type NavProps = {
   rep: Replicache<M>;
   undoManager: UndoManager;
-  canUndoRedo: { canUndo: boolean; canRedo: boolean };
+  canUndoRedo: {canUndo: boolean; canRedo: boolean};
 };
 
-export function Nav({ rep, undoManager, canUndoRedo }: NavProps) {
+export function Nav({rep, undoManager, canUndoRedo}: NavProps) {
   const [aboutVisible, showAbout] = useState(false);
   const [shareVisible, showShare] = useState(false);
   const urlBox = useRef<HTMLInputElement>(null);
@@ -32,7 +32,7 @@ export function Nav({ rep, undoManager, canUndoRedo }: NavProps) {
     const shape = randomShape();
     const execute = () => rep.mutate.createShape(shape);
     const undo = () => rep.mutate.deleteShape(shape.id);
-    undoManager.add({ execute, undo });
+    void undoManager.add({execute, undo});
   };
 
   return (
@@ -116,18 +116,18 @@ export function Nav({ rep, undoManager, canUndoRedo }: NavProps) {
         </Modal.Header>
         <Modal.Body>
           <p>
-            This is a demonstration of{" "}
+            This is a demonstration of{' '}
             <a href="https://replicache.dev" target="_blank">
               <u>Replicache</u>
-            </a>{" "}
+            </a>{' '}
             — a JavaScript library that enables realtime, collaborative web apps
             for any backend stack.
           </p>
           <p>
-            Try{" "}
+            Try{' '}
             <a href={location.href} target="_blank">
               <u>opening this page</u>
-            </a>{" "}
+            </a>{' '}
             in two browser windows and moving the boxes around.
           </p>
         </Modal.Body>

@@ -1,21 +1,21 @@
-import React, { useRef, useState } from "react";
-import { Rect } from "./rect";
-import { HotKeys } from "react-hotkeys";
-import { Collaborator } from "./collaborator";
-import { RectController } from "./rect-controller";
-import { touchToMouse } from "./events";
-import { Selection } from "./selection";
-import { DraggableCore } from "react-draggable";
+import React, {useRef, useState} from 'react';
+import {Rect} from './rect';
+import {HotKeys} from 'react-hotkeys';
+import {Collaborator} from './collaborator';
+import {RectController} from './rect-controller';
+import {touchToMouse} from './events';
+import {Selection} from './selection';
+import {DraggableCore} from 'react-draggable';
 import {
   useShapeIDs,
   useOverShapeID,
   useSelectedShapeID,
   useCollaboratorIDs,
-} from "./subscriptions";
-import { Replicache } from "replicache";
-import { M } from "./mutators";
-import type { UndoManager } from "@rocicorp/undo";
-import { getShape, Shape } from "./shape";
+} from './subscriptions';
+import type {Replicache} from 'replicache';
+import type {M} from './mutators';
+import type {UndoManager} from '@rocicorp/undo';
+import {getShape, Shape} from './shape';
 
 export function Designer({
   rep,
@@ -32,64 +32,54 @@ export function Designer({
   const ref = useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  const move = async (
-    dx: number = 0,
-    dy: number = 0,
-    animate: boolean = true
-  ) => {
-    await rep.mutate.moveShape({ id: selectedID, dx, dy, animate });
+  const move = async (dx = 0, dy = 0, animate = true) => {
+    await rep.mutate.moveShape({id: selectedID, dx, dy, animate});
   };
 
   const handlers = {
     moveLeft: () => {
-      move(-20, 0);
-      undoManager.add({
+      void move(-20, 0);
+      void undoManager.add({
         redo: () => move(-20, 0, false),
         undo: () => move(20, 0, false),
       });
     },
     moveRight: () => {
-      move(20, 0);
-      undoManager.add({
+      void move(20, 0);
+      void undoManager.add({
         redo: () => move(20, 0, false),
         undo: () => move(-20, 0, false),
       });
     },
     moveUp: () => {
-      move(0, -20);
-      undoManager.add({
+      void move(0, -20);
+      void undoManager.add({
         redo: () => move(0, -20, false),
         undo: () => move(0, 20, false),
       });
     },
     moveDown: () => {
-      move(0, 20);
-      undoManager.add({
+      void move(0, 20);
+      void undoManager.add({
         redo: () => move(0, 20, false),
         undo: () => move(0, -20, false),
       });
     },
-    deleteShape: async () => {
+    deleteShape: async (e?: KeyboardEvent) => {
       // Prevent navigating backward on some browsers.
-      event?.preventDefault();
-      const shapeBeforeDelete = await rep.query((tx) =>
-        getShape(tx, selectedID)
-      );
+      e && e.preventDefault();
+      const shapeBeforeDelete = await rep.query(tx => getShape(tx, selectedID));
       const deleteShape = () => rep.mutate.deleteShape(selectedID);
-      const createShape = () => {
+      const createShape = () =>
         rep.mutate.createShape(shapeBeforeDelete as Shape);
-      };
-      undoManager.add({
+
+      void undoManager.add({
         execute: deleteShape,
         undo: createShape,
       });
     },
-    undo: () => {
-      undoManager.undo();
-    },
-    redo: () => {
-      undoManager.redo();
-    },
+    undo: () => undoManager.undo(),
+    redo: () => undoManager.redo(),
   };
 
   const onMouseMove = async ({
@@ -100,7 +90,7 @@ export function Designer({
     pageY: number;
   }) => {
     if (ref && ref.current) {
-      rep.mutate.setCursor({
+      void rep.mutate.setCursor({
         id: await rep.clientID,
         x: pageX,
         y: pageY - ref.current.offsetTop,
@@ -111,7 +101,7 @@ export function Designer({
   return (
     <HotKeys
       {...{
-        style: { outline: "none", display: "flex", flex: 1 },
+        style: {outline: 'none', display: 'flex', flex: 1},
         keyMap,
         handlers,
       }}
@@ -124,16 +114,16 @@ export function Designer({
           {...{
             ref,
             style: {
-              position: "relative",
-              display: "flex",
+              position: 'relative',
+              display: 'flex',
               flex: 1,
-              overflow: "hidden",
+              overflow: 'hidden',
             },
             onMouseMove,
-            onTouchMove: (e) => touchToMouse(e, onMouseMove),
+            onTouchMove: e => touchToMouse(e, onMouseMove),
           }}
         >
-          {ids.map((id) => (
+          {ids.map(id => (
             // draggable rects
             <RectController
               {...{
@@ -180,7 +170,7 @@ export function Designer({
             // foreignObject seems super buggy in Safari, so instead we do the
             // text labels in an HTML context, then do collaborator selection
             // rectangles as their own independent svg content. Le. Sigh.
-            collaboratorIDs.map((id) => (
+            collaboratorIDs.map(id => (
               <Collaborator
                 {...{
                   key: `key-${id}`,
@@ -197,11 +187,11 @@ export function Designer({
 }
 
 const keyMap = {
-  moveLeft: ["left", "shift+left"],
-  moveRight: ["right", "shift+right"],
-  moveUp: ["up", "shift+up"],
-  moveDown: ["down", "shift+down"],
-  deleteShape: ["del", "backspace"],
-  undo: ["ctrl+z", "command+z"],
-  redo: ["ctrl+y", "command+shift+z"],
+  moveLeft: ['left', 'shift+left'],
+  moveRight: ['right', 'shift+right'],
+  moveUp: ['up', 'shift+up'],
+  moveDown: ['down', 'shift+down'],
+  deleteShape: ['del', 'backspace'],
+  undo: ['ctrl+z', 'command+z'],
+  redo: ['ctrl+y', 'command+shift+z'],
 };

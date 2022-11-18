@@ -1,7 +1,7 @@
-import { nanoid } from "nanoid";
+import {nanoid} from 'nanoid';
 
 function Page() {
-  return "";
+  return '';
 }
 
 export function getServerSideProps() {

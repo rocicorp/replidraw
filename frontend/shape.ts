@@ -1,8 +1,8 @@
-import { ReadTransaction, WriteTransaction } from "replicache";
-import { z } from "zod";
+import type {ReadTransaction, WriteTransaction} from 'replicache';
+import {z} from 'zod';
 
-import { nanoid } from "nanoid";
-import { randInt } from "./rand";
+import {nanoid} from 'nanoid';
+import {randInt} from './rand';
 
 export const shapePrefix = `shape-`;
 
@@ -17,7 +17,7 @@ export const shapeID = (key: string) => {
 
 export const shapeSchema = z.object({
   id: z.string(),
-  type: z.literal("rect"),
+  type: z.literal('rect'),
   x: z.number(),
   y: z.number(),
   width: z.number(),
@@ -29,11 +29,11 @@ export const shapeSchema = z.object({
 
 export type Shape = Readonly<z.TypeOf<typeof shapeSchema>>;
 
-const shapeValueSchema = shapeSchema.omit({ id: true });
+const shapeValueSchema = shapeSchema.omit({id: true});
 
 export async function getShape(
   tx: ReadTransaction,
-  id: string
+  id: string,
 ): Promise<Shape | undefined> {
   const val = await tx.get(shapeKey(id));
   if (val === undefined) {
@@ -48,14 +48,14 @@ export async function getShape(
 
 export async function putShape(
   tx: WriteTransaction,
-  shape: Shape
+  shape: Shape,
 ): Promise<void> {
   await tx.put(shapeKey(shape.id), shape);
 }
 
 export async function deleteShape(
   tx: WriteTransaction,
-  id: string
+  id: string,
 ): Promise<void> {
   await tx.del(shapeKey(id));
 }
@@ -67,7 +67,7 @@ export async function moveShape(
     dx,
     dy,
     animate = true,
-  }: { id: string; dx: number; dy: number; animate?: boolean }
+  }: {id: string; dx: number; dy: number; animate?: boolean},
 ): Promise<void> {
   const shape = await getShape(tx, id);
   if (shape) {
@@ -82,7 +82,7 @@ export async function moveShape(
 
 export async function resizeShape(
   tx: WriteTransaction,
-  { id, ds, animate = true }: { id: string; ds: number; animate?: boolean }
+  {id, ds, animate = true}: {id: string; ds: number; animate?: boolean},
 ): Promise<void> {
   const shape = await getShape(tx, id);
   if (shape) {
@@ -102,40 +102,36 @@ export async function resizeShape(
 
 export async function rotateShape(
   tx: WriteTransaction,
-  { id, ddeg, animate = true }: { id: string; ddeg: number; animate?: boolean }
+  {id, ddeg, animate = true}: {id: string; ddeg: number; animate?: boolean},
 ): Promise<void> {
   const shape = await getShape(tx, id);
   if (shape) {
-    await putShape(tx, { ...shape, rotate: shape.rotate + ddeg, animate });
+    await putShape(tx, {...shape, rotate: shape.rotate + ddeg, animate});
   }
 }
 
 export async function initShapes(tx: WriteTransaction, shapes: Shape[]) {
-  if (await tx.has("initialized")) {
+  if (await tx.has('initialized')) {
     return;
   }
   await Promise.all([
-    tx.put("initialized", true),
-    ...shapes.map((s) => putShape(tx, s)),
+    tx.put('initialized', true),
+    ...shapes.map(s => putShape(tx, s)),
   ]);
 }
 
-function key(id: string): string {
-  return `${shapePrefix}${id}`;
-}
-
-const colors = ["red", "blue", "white", "green", "yellow"];
+const colors = ['red', 'blue', 'white', 'green', 'yellow'];
 let nextColor = 0;
 
 export function randomShape() {
   const s = randInt(100, 400);
   const fill = colors[nextColor++];
-  if (nextColor == colors.length) {
+  if (nextColor === colors.length) {
     nextColor = 0;
   }
   return {
     id: nanoid(),
-    type: "rect",
+    type: 'rect',
     x: randInt(0, 400),
     y: randInt(0, 400),
     width: s,

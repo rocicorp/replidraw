@@ -1,9 +1,9 @@
-import { Rect } from "./rect";
-import { useShape } from "./smoothie";
-import { DraggableCore, DraggableEvent, DraggableData } from "react-draggable";
-import { Replicache } from "replicache";
-import { M } from "./mutators";
-import type { UndoManager } from "@rocicorp/undo";
+import {Rect} from './rect';
+import {useShape} from './smoothie';
+import {DraggableCore, DraggableEvent, DraggableData} from 'react-draggable';
+import type {Replicache} from 'replicache';
+import type {M} from './mutators';
+import type {UndoManager} from '@rocicorp/undo';
 
 export function Selection({
   rep,
@@ -51,18 +51,14 @@ export function Selection({
       shapeCenter.x,
       d.x - d.deltaX,
       shapeCenter.y,
-      d.y - d.deltaY
+      d.y - d.deltaY,
     );
     const s1 = size(shapeCenter.x, d.x, shapeCenter.y, d.y);
 
-    rep.mutate.resizeShape({ id, ds: s1 - s0 });
-    undoManager.add({
-      redo: () => {
-        rep.mutate.resizeShape({ id, ds: s1 - s0, animate: false });
-      },
-      undo: () => {
-        rep.mutate.resizeShape({ id, ds: s0 - s1, animate: false });
-      },
+    void rep.mutate.resizeShape({id, ds: s1 - s0});
+    void undoManager.add({
+      redo: () => rep.mutate.resizeShape({id, ds: s1 - s0, animate: false}),
+      undo: () => rep.mutate.resizeShape({id, ds: s0 - s1, animate: false}),
     });
   };
 
@@ -84,30 +80,28 @@ export function Selection({
     const shapeCenter = center(coords);
     const before = Math.atan2(
       offsetY - d.deltaY - shapeCenter.y,
-      d.x - d.deltaX - shapeCenter.x
+      d.x - d.deltaX - shapeCenter.x,
     );
     const after = Math.atan2(offsetY - shapeCenter.y, d.x - shapeCenter.x);
     const ddeg = ((after - before) * 180) / Math.PI;
-    rep.mutate.rotateShape({
+    void rep.mutate.rotateShape({
       id,
       ddeg,
     });
 
-    undoManager.add({
-      redo: () => {
+    void undoManager.add({
+      redo: () =>
         rep.mutate.rotateShape({
           id,
           ddeg,
           animate: false,
-        });
-      },
-      undo: () => {
+        }),
+      undo: () =>
         rep.mutate.rotateShape({
           id,
           ddeg: -ddeg,
           animate: false,
-        });
-      },
+        }),
     });
   };
 
@@ -115,7 +109,7 @@ export function Selection({
     return null;
   }
 
-  const { x, y, w, h, r } = coords;
+  const {x, y, w, h, r} = coords;
 
   return (
     <div>
@@ -128,11 +122,11 @@ export function Selection({
       />
       <div
         style={{
-          position: "absolute",
+          position: 'absolute',
           transform: `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`,
           width: w,
           height: h,
-          pointerEvents: "none",
+          pointerEvents: 'none',
         }}
       >
         <DraggableCore
@@ -144,12 +138,12 @@ export function Selection({
             width={gripSize}
             height={gripSize}
             style={{
-              position: "absolute",
+              position: 'absolute',
               transform: `translate3d(${w - gripSize / 2 - 2}px, ${
                 h - gripSize / 2 - 2
               }px, 0)`,
-              cursor: "grab",
-              pointerEvents: "all",
+              cursor: 'grab',
+              pointerEvents: 'all',
             }}
           >
             <rect
@@ -170,12 +164,12 @@ export function Selection({
             width={gripSize}
             height={gripSize}
             style={{
-              position: "absolute",
+              position: 'absolute',
               transform: `translate3d(${w + gripSize * 1.5}px, ${
                 h / 2 - gripSize / 2
               }px, 0)`,
-              cursor: "grab",
-              pointerEvents: "all",
+              cursor: 'grab',
+              pointerEvents: 'all',
             }}
           >
             <ellipse

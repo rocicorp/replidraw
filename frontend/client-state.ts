@@ -1,36 +1,36 @@
-import { ReadTransaction, WriteTransaction } from "replicache";
-import { z } from "zod";
-import { randInt } from "./rand";
+import type {ReadTransaction, WriteTransaction} from 'replicache';
+import {z} from 'zod';
+import {randInt} from './rand';
 
 const colors = [
-  "#f94144",
-  "#f3722c",
-  "#f8961e",
-  "#f9844a",
-  "#f9c74f",
-  "#90be6d",
-  "#43aa8b",
-  "#4d908e",
-  "#577590",
-  "#277da1",
+  '#f94144',
+  '#f3722c',
+  '#f8961e',
+  '#f9844a',
+  '#f9c74f',
+  '#90be6d',
+  '#43aa8b',
+  '#4d908e',
+  '#577590',
+  '#277da1',
 ];
 const avatars = [
-  ["🐶", "Puppy"],
-  ["🐱", "Kitty"],
-  ["🐭", "Mouse"],
-  ["🐹", "Hamster"],
-  ["🐰", "Bunny"],
-  ["🦊", "Fox"],
-  ["🐻", "Bear"],
-  ["🐼", "Panda"],
-  ["🐻‍❄️", "Polar Bear"],
-  ["🐨", "Koala"],
-  ["🐯", "Tiger"],
-  ["🦁", "Lion"],
-  ["🐮", "Cow"],
-  ["🐷", "Piggy"],
-  ["🐵", "Monkey"],
-  ["🐣", "Chick"],
+  ['🐶', 'Puppy'],
+  ['🐱', 'Kitty'],
+  ['🐭', 'Mouse'],
+  ['🐹', 'Hamster'],
+  ['🐰', 'Bunny'],
+  ['🦊', 'Fox'],
+  ['🐻', 'Bear'],
+  ['🐼', 'Panda'],
+  ['🐻‍❄️', 'Polar Bear'],
+  ['🐨', 'Koala'],
+  ['🐯', 'Tiger'],
+  ['🦁', 'Lion'],
+  ['🐮', 'Cow'],
+  ['🐷', 'Piggy'],
+  ['🐵', 'Monkey'],
+  ['🐣', 'Chick'],
 ];
 
 export const userInfoSchema = z.object({
@@ -64,11 +64,11 @@ export const clientStateSchema = z.object({
 export type UserInfo = z.TypeOf<typeof userInfoSchema>;
 export type ClientState = z.TypeOf<typeof clientStateSchema>;
 
-const clientStateValueSchema = clientStateSchema.omit({ id: true });
+const clientStateValueSchema = clientStateSchema.omit({id: true});
 
 export async function initClientState(
   tx: WriteTransaction,
-  { id, defaultUserInfo }: { id: string; defaultUserInfo: UserInfo }
+  {id, defaultUserInfo}: {id: string; defaultUserInfo: UserInfo},
 ): Promise<void> {
   if (await tx.has(clientStateKey(id))) {
     return;
@@ -79,19 +79,19 @@ export async function initClientState(
       x: 0,
       y: 0,
     },
-    overID: "",
-    selectedID: "",
+    overID: '',
+    selectedID: '',
     userInfo: defaultUserInfo,
   });
 }
 
 export async function getClientState(
   tx: ReadTransaction,
-  id: string
+  id: string,
 ): Promise<ClientState> {
   const val = await tx.get(clientStateKey(id));
   if (val === undefined) {
-    throw new Error("Expected clientState to be initialized already: " + id);
+    throw new Error('Expected clientState to be initialized already: ' + id);
   }
   return {
     id,
@@ -101,14 +101,14 @@ export async function getClientState(
 
 export async function putClientState(
   tx: WriteTransaction,
-  clientState: ClientState
+  clientState: ClientState,
 ): Promise<void> {
   await tx.put(clientStateKey(clientState.id), clientState);
 }
 
 export async function setCursor(
   tx: WriteTransaction,
-  { id, x, y }: { id: string; x: number; y: number }
+  {id, x, y}: {id: string; x: number; y: number},
 ): Promise<void> {
   const clientState = await getClientState(tx, id);
   clientState.cursor.x = x;
@@ -118,7 +118,7 @@ export async function setCursor(
 
 export async function overShape(
   tx: WriteTransaction,
-  { clientID, shapeID }: { clientID: string; shapeID: string }
+  {clientID, shapeID}: {clientID: string; shapeID: string},
 ): Promise<void> {
   const clientState = await getClientState(tx, clientID);
   clientState.overID = shapeID;
@@ -127,7 +127,7 @@ export async function overShape(
 
 export async function selectShape(
   tx: WriteTransaction,
-  { clientID, shapeID }: { clientID: string; shapeID: string }
+  {clientID, shapeID}: {clientID: string; shapeID: string},
 ): Promise<void> {
   const clientState = await getClientState(tx, clientID);
   clientState.selectedID = shapeID;

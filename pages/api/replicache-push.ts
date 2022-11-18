@@ -1,17 +1,18 @@
-import { transact } from "../../backend/pg";
+import {transact} from '../../backend/pg';
 import {
   createDatabase,
   getCookie,
   getLastMutationID,
   setCookie,
   setLastMutationID,
-} from "../../backend/data";
-import type { NextApiRequest, NextApiResponse } from "next";
-import { ReplicacheTransaction } from "../../backend/replicache-transaction";
-import { mutators } from "../../frontend/mutators";
-import { z } from "zod";
-import { jsonSchema } from "../../util/json";
-import Pusher from "pusher";
+} from '../../backend/data';
+import type {NextApiRequest, NextApiResponse} from 'next';
+import {ReplicacheTransaction} from '../../backend/replicache-transaction';
+import {mutators} from '../../frontend/mutators';
+import {z} from 'zod';
+import {jsonSchema} from '../../util/json';
+import Pusher from 'pusher';
+import type {MutatorDefs} from 'replicache';
 
 // TODO: Either generate schema from mutator types, or vice versa, to tighten this.
 // See notes in bug: https://github.com/rocicorp/replidraw/issues/47
@@ -27,18 +28,18 @@ const pushRequestSchema = z.object({
 });
 
 export default async (req: NextApiRequest, res: NextApiResponse) => {
-  console.log("Processing push", JSON.stringify(req.body, null, ""));
-  if (!req.query["spaceID"]) {
-    res.status(400).send("Missing spaceID");
+  console.log('Processing push', JSON.stringify(req.body, null, ''));
+  if (!req.query['spaceID']) {
+    res.status(400).send('Missing spaceID');
     res.end();
     return;
   }
   const t0 = Date.now();
 
-  const spaceID = req.query["spaceID"].toString();
+  const spaceID = req.query['spaceID'].toString();
   const push = pushRequestSchema.parse(req.body);
 
-  await transact(async (executor) => {
+  await transact(async executor => {
     await createDatabase(executor);
 
     const prevVersion = (await getCookie(executor, spaceID)) ?? 0;
@@ -46,14 +47,14 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     let lastMutationID =
       (await getLastMutationID(executor, push.clientID)) ?? 0;
 
-    console.log("prevVersion: ", prevVersion);
-    console.log("lastMutationID:", lastMutationID);
+    console.log('prevVersion: ', prevVersion);
+    console.log('lastMutationID:', lastMutationID);
 
     const tx = new ReplicacheTransaction(
       executor,
       spaceID,
       push.clientID,
-      nextVersion
+      nextVersion,
     );
 
     for (let i = 0; i < push.mutations.length; i++) {
@@ -62,7 +63,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
       if (mutation.id < expectedMutationID) {
         console.log(
-          `Mutation ${mutation.id} has already been processed - skipping`
+          `Mutation ${mutation.id} has already been processed - skipping`,
         );
         continue;
       }
@@ -71,10 +72,10 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
         break;
       }
 
-      console.log("Processing mutation:", JSON.stringify(mutation, null, ""));
+      console.log('Processing mutation:', JSON.stringify(mutation, null, ''));
 
       const t1 = Date.now();
-      const mutator = (mutators as any)[mutation.name];
+      const mutator = (mutators as MutatorDefs)[mutation.name];
       if (!mutator) {
         console.error(`Unknown mutator: ${mutation.name} - skipping`);
       }
@@ -83,12 +84,12 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
         await mutator(tx, mutation.args);
       } catch (e) {
         console.error(
-          `Error executing mutator: ${JSON.stringify(mutator)}: ${e}`
+          `Error executing mutator: ${JSON.stringify(mutator)}: ${e}`,
         );
       }
 
       lastMutationID = expectedMutationID;
-      console.log("Processed mutation in", Date.now() - t1);
+      console.log('Processed mutation in', Date.now() - t1);
     }
 
     await Promise.all([
@@ -98,7 +99,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     ]);
   });
 
-  console.log("Processed all mutations in", Date.now() - t0);
+  console.log('Processed all mutations in', Date.now() - t0);
 
   if (
     process.env.NEXT_PUBLIC_PUSHER_APP_ID &&
@@ -116,12 +117,12 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
       useTLS: true,
     });
 
-    await pusher.trigger("default", "poke", {});
-    console.log("Poke took", Date.now() - startPoke);
+    await pusher.trigger('default', 'poke', {});
+    console.log('Poke took', Date.now() - startPoke);
   } else {
-    console.log("Not poking because Pusher is not configured");
+    console.log('Not poking because Pusher is not configured');
   }
 
   res.status(200).json({});
-  console.log("Processing push took", Date.now() - t0);
+  console.log('Processing push took', Date.now() - t0);
 };
