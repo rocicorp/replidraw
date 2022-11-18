@@ -1,10 +1,10 @@
-import styles from "./collaborator.module.css";
-import { useEffect, useState } from "react";
-import { Rect } from "./rect";
-import { useCursor } from "./smoothie";
-import { Replicache } from "replicache";
-import type { M } from "./mutators";
-import { useClientInfo } from "./subscriptions";
+import styles from './collaborator.module.css';
+import {useEffect, useState} from 'react';
+import {Rect} from './rect';
+import {useCursor} from './smoothie';
+import type {Replicache} from 'replicache';
+import type {M} from './mutators';
+import {useClientInfo} from './subscriptions';
 
 const hideCollaboratorDelay = 5000;
 
@@ -43,11 +43,11 @@ export function Collaborator({
   if (curPos) {
     if (!lastPos) {
       console.log(`Cursor ${clientID} - got initial position`, curPos);
-      setLastPos({ pos: curPos, ts: Date.now() });
+      setLastPos({pos: curPos, ts: Date.now()});
     } else {
-      if (lastPos.pos.x != curPos.x || lastPos.pos.y != curPos.y) {
+      if (lastPos.pos.x !== curPos.x || lastPos.pos.y !== curPos.y) {
         console.log(`Cursor ${clientID} - got change to`, curPos);
-        setLastPos({ pos: curPos, ts: Date.now() });
+        setLastPos({pos: curPos, ts: Date.now()});
         setGotFirstChange(true);
       }
       if (gotFirstChange) {
@@ -67,14 +67,14 @@ export function Collaborator({
   });
 
   console.log(
-    `Cursor ${clientID} - elapsed ${elapsed}, remaining: ${remaining}, visible: ${visible}`
+    `Cursor ${clientID} - elapsed ${elapsed}, remaining: ${remaining}, visible: ${visible}`,
   );
   if (!clientInfo || !curPos || !userInfo) {
     return null;
   }
 
   return (
-    <div className={styles.collaborator} style={{ opacity: visible ? 1 : 0 }}>
+    <div className={styles.collaborator} style={{opacity: visible ? 1 : 0}}>
       {clientInfo.selectedID && (
         <Rect
           {...{
@@ -92,17 +92,17 @@ export function Collaborator({
         style={{
           left: curPos.x,
           top: curPos.y,
-          overflow: "auto",
+          overflow: 'auto',
         }}
       >
-        <div className={styles.pointer} style={{ color: userInfo.color }}>
+        <div className={styles.pointer} style={{color: userInfo.color}}>
           ➤
         </div>
         <div
           className={styles.userinfo}
           style={{
             backgroundColor: userInfo.color,
-            color: "white",
+            color: 'white',
           }}
         >
           {userInfo.avatar}&nbsp;{userInfo.name}

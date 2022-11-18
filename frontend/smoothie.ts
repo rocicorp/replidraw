@@ -1,8 +1,8 @@
-import hermite from "cubic-hermite";
-import { useEffect, useState } from "react";
-import { Replicache, ReadTransaction } from "replicache";
-import { getClientState } from "./client-state";
-import { getShape } from "./shape";
+import hermite from 'cubic-hermite';
+import {useEffect, useState} from 'react';
+import type {Replicache, ReadTransaction} from 'replicache';
+import {getClientState} from './client-state';
+import {getShape} from './shape';
 
 /**
  * Gets the current position of the cursor for `clientID`, but smoothing out
@@ -10,8 +10,8 @@ import { getShape } from "./shape";
  */
 export function useCursor(
   rep: Replicache,
-  clientID: string
-): { x: number; y: number } | null {
+  clientID: string,
+): {x: number; y: number} | null {
   const [values, setValues] = useState<Array<number> | null>(null);
   const smoothie = Smoothie.get(
     rep,
@@ -22,14 +22,14 @@ export function useCursor(
         animate: true,
         values: [clientState.cursor.x, clientState.cursor.y],
       };
-    }
+    },
   );
   useListener(smoothie, setValues, clientID);
   if (!values) {
     return null;
   }
   const [x, y] = values;
-  return { x, y };
+  return {x, y};
 }
 
 /**
@@ -49,14 +49,14 @@ export function useShape(rep: Replicache, shapeID: string) {
             values: [shape.x, shape.y, shape.width, shape.height, shape.rotate],
           }
         : null;
-    }
+    },
   );
   useListener(smoother, setValues, shapeID);
   if (!values) {
     return null;
   }
   const [x, y, w, h, r] = values;
-  return { x, y, w, h, r };
+  return {x, y, w, h, r};
 }
 
 /**
@@ -76,14 +76,14 @@ type Animation = {
 
 type Listener = (current: Array<number> | null) => void;
 type SubscriptionFunction = (
-  tx: ReadTransaction
-) => Promise<{ animate: boolean; values: Array<number> } | null>;
+  tx: ReadTransaction,
+) => Promise<{animate: boolean; values: Array<number>} | null>;
 
 const minAnimationDuration = 50;
 const maxAnimationDuration = 5000;
 
 /**
- * Smoothie interpolates frames between Repicache subscription notifications.
+ * Smoothie interpolates frames between Replicache subscription notifications.
  *
  * We cannot simply animate at the UI layer, because we need multiple UI
  * elements that appear to be together (e.g., the selection highlight for
@@ -95,7 +95,7 @@ const maxAnimationDuration = 5000;
  * tweens between frames.
  */
 class Smoothie {
-  private static instances = new Map<string, Smoothie>();
+  private static _instances = new Map<string, Smoothie>();
 
   /**
    * Gets the specified named instance
@@ -109,173 +109,172 @@ class Smoothie {
   static get(
     rep: Replicache,
     key: string,
-    sub: SubscriptionFunction
+    sub: SubscriptionFunction,
   ): Smoothie {
-    let s = this.instances.get(key);
+    let s = this._instances.get(key);
     if (!s) {
       s = new Smoothie(rep, sub);
-      this.instances.set(key, s);
+      this._instances.set(key, s);
     }
     return s;
   }
 
-  private rep: Replicache;
+  private _rep: Replicache;
 
   // The target values we're currently animating to.
-  private latestTargetsValues: Array<number> | null = null;
+  private _latestTargetsValues: Array<number> | null = null;
 
   // The latest time the latestTargets changed.
-  private latestTimestamp = 0;
+  private _latestTimestamp = 0;
 
   // The current animation we're running. Only non-null when one is
   // actually running.
-  private currentAnimation: Animation | null = null;
+  private _currentAnimation: Animation | null = null;
 
   // Current listeners.
-  private listeners = new Set<Listener>();
+  private _listeners = new Set<Listener>();
 
   private constructor(rep: Replicache, sub: SubscriptionFunction) {
-    this.rep = rep;
-    this.rep.subscribe(sub, {
-      onData: (targets) => {
+    this._rep = rep;
+    this._rep.subscribe(sub, {
+      onData: targets => {
         const now = performance.now();
 
         // We can flip back to null, for example if the object we are watching
         // gets deleted. So we must handle that and count it as achange.
-        if (targets == null) {
+        if (targets === null) {
           this.jumpTo(null, now);
           return;
         }
 
-        if (this.latestTargetsValues == null) {
+        if (this._latestTargetsValues === null) {
           this.jumpTo(targets.values, now);
           return;
         }
 
-        if (!shallowEqual(targets.values, this.latestTargetsValues)) {
-          if (targets.values.length != this.latestTargetsValues.length) {
-            console.info("Number of targets changed - ignoring");
+        if (!shallowEqual(targets.values, this._latestTargetsValues)) {
+          if (targets.values.length !== this._latestTargetsValues.length) {
+            console.info('Number of targets changed - ignoring');
             return;
           }
 
-          let duration = now - this.latestTimestamp;
+          const duration = now - this._latestTimestamp;
           if (duration < minAnimationDuration || targets.animate === false) {
             // If the time since last frame is very short, it looks better to
             // skip the animation. This mainly happens with frames generated
             // locally.
             this.jumpTo(targets.values, now);
-          } else if (!this.currentAnimation) {
+          } else if (!this._currentAnimation) {
             // Otherwise if there's no current animation running, start one.
-            this.currentAnimation = {
-              startValues: this.latestTargetsValues,
+            this._currentAnimation = {
+              startValues: this._latestTargetsValues,
               targetValues: targets.values,
-              startVelocities: targets.values.map((_) => 0),
-              targetVelocities: targets.values.map((_) => 0),
+              startVelocities: targets.values.map(_ => 0),
+              targetVelocities: targets.values.map(_ => 0),
               startTime: now,
               duration: this.frameDuration(now),
-              currentValues: this.latestTargetsValues,
+              currentValues: this._latestTargetsValues,
               timerID: this.scheduleAnimate(),
             };
           } else {
             // Otherwise, cancel the existing animation and start a new one.
-            cancelAnimationFrame(this.currentAnimation.timerID);
+            cancelAnimationFrame(this._currentAnimation.timerID);
 
             const t =
-              (now - this.currentAnimation.startTime) /
-              this.currentAnimation.duration;
+              (now - this._currentAnimation.startTime) /
+              this._currentAnimation.duration;
 
             // Get the current velocities. These will be the initial
             // velocities for the new animation.
             const startVelocities = hermite.derivative(
-              this.currentAnimation.startValues,
-              this.currentAnimation.startVelocities,
-              this.currentAnimation.targetValues,
-              this.currentAnimation.targetVelocities,
-              Math.max(0, Math.min(t, 1))
+              this._currentAnimation.startValues,
+              this._currentAnimation.startVelocities,
+              this._currentAnimation.targetValues,
+              this._currentAnimation.targetVelocities,
+              Math.max(0, Math.min(t, 1)),
             );
-            this.currentAnimation = {
-              startValues: this.currentAnimation.currentValues,
+            this._currentAnimation = {
+              startValues: this._currentAnimation.currentValues,
               targetValues: targets.values,
               startVelocities,
-              targetVelocities: targets.values.map((_) => 0),
+              targetVelocities: targets.values.map(_ => 0),
               startTime: now,
               duration: this.frameDuration(now),
-              currentValues: this.currentAnimation.currentValues,
+              currentValues: this._currentAnimation.currentValues,
               timerID: this.scheduleAnimate(),
             };
           }
-          this.latestTargetsValues = targets.values;
-          this.latestTimestamp = now;
+          this._latestTargetsValues = targets.values;
+          this._latestTimestamp = now;
         }
       },
     });
   }
 
   jumpTo(targets: Array<number> | null, now: number) {
-    this.currentAnimation &&
-      cancelAnimationFrame(this.currentAnimation.timerID);
-    this.currentAnimation = null;
-    this.latestTargetsValues = targets;
-    this.latestTimestamp = now;
+    this._currentAnimation &&
+      cancelAnimationFrame(this._currentAnimation.timerID);
+    this._currentAnimation = null;
+    this._latestTargetsValues = targets;
+    this._latestTimestamp = now;
     this.fire();
   }
 
   scheduleAnimate() {
-    return requestAnimationFrame((time) => {
-      if (!this.currentAnimation) {
+    return requestAnimationFrame(() => {
+      if (!this._currentAnimation) {
         return;
       }
 
       // Update the current animated values.
       const t =
-        (performance.now() - this.currentAnimation.startTime) /
-        this.currentAnimation.duration;
-      this.currentAnimation = {
-        ...this.currentAnimation,
+        (performance.now() - this._currentAnimation.startTime) /
+        this._currentAnimation.duration;
+      this._currentAnimation = {
+        ...this._currentAnimation,
         currentValues: hermite(
-          this.currentAnimation.startValues,
-          this.currentAnimation.startVelocities,
-          this.currentAnimation.targetValues,
-          this.currentAnimation.targetVelocities,
-          Math.min(1, Math.max(0, t))
+          this._currentAnimation.startValues,
+          this._currentAnimation.startVelocities,
+          this._currentAnimation.targetValues,
+          this._currentAnimation.targetVelocities,
+          Math.min(1, Math.max(0, t)),
         ),
       };
       this.fire();
       if (t >= 1) {
         // If we're done, clear the animation.
-        this.currentAnimation = null;
+        this._currentAnimation = null;
         return;
       }
       // Otherwise, schedule the next frame.
-      this.currentAnimation.timerID == this.scheduleAnimate();
+      this._currentAnimation.timerID === this.scheduleAnimate();
     });
   }
 
-  private getCurrentValues(): Array<number> | null {
-    if (this.currentAnimation) {
-      return this.currentAnimation.currentValues;
-    } else if (this.latestTargetsValues) {
-      return this.latestTargetsValues;
-    } else {
-      return null;
+  private _getCurrentValues(): Array<number> | null {
+    if (this._currentAnimation) {
+      return this._currentAnimation.currentValues;
+    } else if (this._latestTargetsValues) {
+      return this._latestTargetsValues;
     }
+    return null;
   }
 
   addListener(l: Listener) {
-    this.listeners.add(l);
-    const c = this.getCurrentValues();
+    this._listeners.add(l);
+    const c = this._getCurrentValues();
     if (c) {
       l(c);
     }
   }
 
   removeListener(l: Listener) {
-    this.listeners.delete(l);
+    this._listeners.delete(l);
   }
 
   fire() {
-    const c = this.getCurrentValues();
-    this.listeners.forEach((l) => {
+    const c = this._getCurrentValues();
+    this._listeners.forEach(l => {
       try {
         l(c);
       } catch (e) {
@@ -289,7 +288,7 @@ class Smoothie {
       maxAnimationDuration,
       // We can't simply use the delay since the last frame as the
       // duration for the animation because we want the animation to smoothly
-      // slow down and stop once we stop receving events. But if we're receiving
+      // slow down and stop once we stop receiving events. But if we're receiving
       // frames approximately every Fms, and we set the duration of each frame's
       // animation to be Fms, then we will see a choppy movement when these
       // animations are connected one to the next.
@@ -306,7 +305,7 @@ class Smoothie {
       // coming after this one. This has the effect of smoothing out the
       // animation at the cost of extending the animation n frames longer than it
       // actually took on the source machine.
-      (now - this.latestTimestamp) * 3
+      (now - this._latestTimestamp) * 3,
     );
   }
 }
@@ -314,7 +313,7 @@ class Smoothie {
 function useListener(
   smoother: Smoothie,
   listener: (values: Array<number> | null) => void,
-  dep: string
+  dep: string,
 ) {
   useEffect(() => {
     smoother.addListener(listener);
@@ -322,11 +321,11 @@ function useListener(
   }, [dep]);
 }
 
-function shallowEqual(a1: any[], a2: any[]) {
-  if (a1.length != a2.length) {
+function shallowEqual(a1: unknown[], a2: unknown[]) {
+  if (a1.length !== a2.length) {
     return false;
   }
-  if (a1.some((v1, idx) => v1 != a2[idx])) {
+  if (a1.some((v1, idx) => v1 !== a2[idx])) {
     return false;
   }
   return true;

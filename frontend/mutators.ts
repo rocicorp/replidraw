@@ -3,7 +3,7 @@ import {
   setCursor,
   overShape,
   selectShape,
-} from "./client-state";
+} from './client-state';
 import {
   putShape,
   deleteShape,
@@ -11,7 +11,7 @@ import {
   resizeShape,
   rotateShape,
   initShapes,
-} from "./shape";
+} from './shape';
 
 export type M = typeof mutators;
 
@@ -26,4 +26,4 @@ export const mutators = {
   overShape,
   selectShape,
   initShapes,
-};
+} as const;

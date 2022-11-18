@@ -1,9 +1,9 @@
-import { Rect } from "./rect";
-import { DraggableCore, DraggableEvent, DraggableData } from "react-draggable";
-import { useShapeByID } from "./subscriptions";
-import { Replicache } from "replicache";
-import { M } from "./mutators";
-import type { UndoManager } from "@rocicorp/undo";
+import {Rect} from './rect';
+import {DraggableCore, DraggableEvent, DraggableData} from 'react-draggable';
+import {useShapeByID} from './subscriptions';
+import type {Replicache} from 'replicache';
+import type {M} from './mutators';
+import type {UndoManager} from '@rocicorp/undo';
 
 // TODO: In the future I imagine this becoming ShapeController and
 // there also be a Shape that wraps Rect and also knows how to draw Circle, etc.
@@ -19,18 +19,16 @@ export function RectController({
   const shape = useShapeByID(rep, id);
 
   const onMouseEnter = async () =>
-    rep.mutate.overShape({ clientID: await rep.clientID, shapeID: id });
+    rep.mutate.overShape({clientID: await rep.clientID, shapeID: id});
   const onMouseLeave = async () =>
-    rep.mutate.overShape({ clientID: await rep.clientID, shapeID: "" });
+    rep.mutate.overShape({clientID: await rep.clientID, shapeID: ''});
 
-  const onDragStart = (e: DraggableEvent, d: DraggableData) => {
+  const onDragStart = (_e: DraggableEvent, _d: DraggableData) => {
     // Can't mark onDragStart async because it changes return type and onDragStart
     // must return void.
     undoManager.startGroup();
-    const blech = async () => {
-      rep.mutate.selectShape({ clientID: await rep.clientID, shapeID: id });
-    };
-    blech();
+    void (async () =>
+      rep.mutate.selectShape({clientID: await rep.clientID, shapeID: id}))();
   };
   const onDrag = (e: DraggableEvent, d: DraggableData) => {
     // This is subtle, and worth drawing attention to:
@@ -40,29 +38,27 @@ export function RectController({
     // We will apply this movement to whatever the state happens to be when we
     // replay. If somebody else was moving the object at the same moment, we'll
     // then end up with a union of the two vectors, which is what we want!
-    rep.mutate.moveShape({
+    void rep.mutate.moveShape({
       id,
       dx: d.deltaX,
       dy: d.deltaY,
       animate: true,
     });
-    undoManager.add({
-      undo: () => {
-        return rep.mutate.moveShape({
+    void undoManager.add({
+      undo: () =>
+        rep.mutate.moveShape({
           id,
           dx: -d.deltaX,
           dy: -d.deltaY,
           animate: false,
-        });
-      },
-      redo: () => {
-        return rep.mutate.moveShape({
+        }),
+      redo: () =>
+        rep.mutate.moveShape({
           id,
           dx: d.deltaX,
           dy: d.deltaY,
           animate: false,
-        });
-      },
+        }),
     });
   };
   const onDragStop = (_e: DraggableEvent, _d: DraggableData) => {

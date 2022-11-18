@@ -1,1 +1,1 @@
-declare module "cubic-hermite";
+declare module 'cubic-hermite';

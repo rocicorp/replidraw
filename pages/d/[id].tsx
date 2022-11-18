@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
-import { Replicache } from "replicache";
-import { Designer } from "../../frontend/designer";
-import { Nav } from "../../frontend/nav";
-import Pusher from "pusher-js";
-import { M, mutators } from "../../frontend/mutators";
-import { randUserInfo } from "../../frontend/client-state";
-import { randomShape } from "../../frontend/shape";
-import { UndoManager } from "@rocicorp/undo";
-import { useRouter } from "next/router";
+import {useEffect, useState} from 'react';
+import {Replicache} from 'replicache';
+import {Designer} from '../../frontend/designer';
+import {Nav} from '../../frontend/nav';
+import Pusher from 'pusher-js';
+import {M, mutators} from '../../frontend/mutators';
+import {randUserInfo} from '../../frontend/client-state';
+import {randomShape} from '../../frontend/shape';
+import {UndoManager} from '@rocicorp/undo';
+import {useRouter} from 'next/router';
 
 export default function Home() {
   const [rep, setRep] = useState<Replicache<M> | null>(null);
@@ -17,7 +17,7 @@ export default function Home() {
     canRedo: false,
   });
   const router = useRouter();
-  const { hideNav } = router.query;
+  const {hideNav} = router.query;
 
   // TODO: Think through Replicache + SSR.
   useEffect(() => {
@@ -26,9 +26,10 @@ export default function Home() {
         return;
       }
 
-      const [, , docID] = location.pathname.split("/");
+      const [, , docID] = location.pathname.split('/');
       const r = new Replicache({
         // To get your own license key run `npx replicache get-license`. (It's free.)
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         licenseKey: process.env.NEXT_PUBLIC_REPLICACHE_LICENSE_KEY!,
         pushURL: `/api/replicache-push?spaceID=${docID}`,
         pullURL: `/api/replicache-pull?spaceID=${docID}`,
@@ -44,7 +45,9 @@ export default function Home() {
       r.onSync = (syncing: boolean) => {
         if (!syncing) {
           r.onSync = null;
-          r.mutate.initShapes(Array.from({ length: 5 }, () => randomShape()));
+          void r.mutate.initShapes(
+            Array.from({length: 5}, () => randomShape()),
+          );
         }
       };
 
@@ -57,18 +60,20 @@ export default function Home() {
           cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
         });
 
-        const channel = pusher.subscribe("default");
-        channel.bind("poke", () => {
+        const channel = pusher.subscribe('default');
+        channel.bind('poke', () => {
           r.pull();
         });
       }
       setUndoManager(
         new UndoManager({
           onChange: setCanUndoRedo,
-        })
+        }),
       );
       setRep(r);
-    })();
+    })().catch(e => {
+      console.error(e);
+    });
   }, []);
 
   if (!rep || !undoManager) {
@@ -78,20 +83,20 @@ export default function Home() {
   return (
     <div
       style={{
-        position: "absolute",
-        display: "flex",
-        flexDirection: "column",
+        position: 'absolute',
+        display: 'flex',
+        flexDirection: 'column',
         left: 0,
         top: 0,
-        width: "100%",
-        height: "100%",
-        background: "rgb(229,229,229)",
+        width: '100%',
+        height: '100%',
+        background: 'rgb(229,229,229)',
       }}
     >
       {!hideNav && (
         <Nav rep={rep} canUndoRedo={canUndoRedo} undoManager={undoManager} />
       )}
-      <Designer {...{ rep, undoManager }} />
+      <Designer {...{rep, undoManager}} />
     </div>
   );
 }

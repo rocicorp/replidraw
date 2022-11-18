@@ -1,14 +1,14 @@
-import React, { MouseEventHandler, TouchEventHandler } from "react";
-import { Replicache } from "replicache";
-import { M } from "./mutators";
-import { useShape } from "./smoothie";
-import { useShapeByID } from "./subscriptions";
+import React, {MouseEventHandler, TouchEventHandler} from 'react';
+import type {Replicache} from 'replicache';
+import type {M} from './mutators';
+import {useShape} from './smoothie';
+import {useShapeByID} from './subscriptions';
 
 export function Rect({
   rep,
   id,
   highlight = false,
-  highlightColor = "rgb(74,158,255)",
+  highlightColor = 'rgb(74,158,255)',
   onMouseDown,
   onTouchStart,
   onMouseEnter,
@@ -29,7 +29,7 @@ export function Rect({
     return null;
   }
 
-  const { x, y, w, h, r } = coords;
+  const {x, y, w, h, r} = coords;
   const enableEvents =
     onMouseDown || onTouchStart || onMouseEnter || onMouseLeave;
 
@@ -38,11 +38,11 @@ export function Rect({
     <svg
       {...{
         style: {
-          position: "absolute",
+          position: 'absolute',
           left: -1,
           top: -1,
           transform: `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`,
-          pointerEvents: enableEvents ? "all" : "none",
+          pointerEvents: enableEvents ? 'all' : 'none',
         },
         width: w + 2,
         height: h + 2,
@@ -56,11 +56,11 @@ export function Rect({
         {...{
           x: 1, // To make room for stroke
           y: 1,
-          strokeWidth: highlight ? "2px" : "0",
+          strokeWidth: highlight ? '2px' : '0',
           stroke: highlightColor,
           width: w,
           height: h,
-          fill: highlight ? "none" : shape.fill,
+          fill: highlight ? 'none' : shape.fill,
         }}
       />
     </svg>
