@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { setup, test } from "mocha";
-import { JSONValue } from "replicache";
+import { ReadonlyJSONValue } from "replicache";
 import {
   createDatabase,
   delEntry,
@@ -59,7 +59,7 @@ test("getEntry", async () => {
       }
 
       const promise = getEntry(executor, "s1", "foo");
-      let result: JSONValue | undefined;
+      let result: ReadonlyJSONValue | undefined;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let error: any | undefined;
       await promise.then(

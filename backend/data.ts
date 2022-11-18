@@ -1,4 +1,4 @@
-import { JSONValue } from "replicache";
+import { JSONValue, ReadonlyJSONValue } from "replicache";
 import { z } from "zod";
 import { Executor } from "./pg";
 
@@ -61,7 +61,7 @@ export async function getEntry(
   executor: Executor,
   spaceid: string,
   key: string
-): Promise<JSONValue | undefined> {
+): Promise<ReadonlyJSONValue | undefined> {
   const {
     rows,
   } = await executor(
@@ -79,7 +79,7 @@ export async function putEntry(
   executor: Executor,
   spaceID: string,
   key: string,
-  value: JSONValue,
+  value: ReadonlyJSONValue,
   version: number
 ): Promise<void> {
   await executor(
@@ -109,7 +109,7 @@ export async function* getEntries(
   executor: Executor,
   spaceID: string,
   fromKey: string
-): AsyncIterable<readonly [string, JSONValue]> {
+): AsyncIterable<readonly [string, ReadonlyJSONValue]> {
   const {
     rows,
   } = await executor(
@@ -117,7 +117,10 @@ export async function* getEntries(
     [spaceID, fromKey]
   );
   for (const row of rows) {
-    yield [row.key as string, JSON.parse(row.value) as JSONValue] as const;
+    yield [
+      row.key as string,
+      JSON.parse(row.value) as ReadonlyJSONValue,
+    ] as const;
   }
 }
 
@@ -125,6 +128,7 @@ export async function getChangedEntries(
   executor: Executor,
   spaceID: string,
   prevVersion: number
+  // TODO(arv): Change this to ReadonlyJSONValue
 ): Promise<[key: string, value: JSONValue, deleted: boolean][]> {
   const {
     rows,
