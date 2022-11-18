@@ -46,3 +46,4 @@ supabase/config.toml
 .env
 
 
+tsconfig.tsbuildinfo
