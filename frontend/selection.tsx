@@ -142,7 +142,7 @@ export function Selection({
               transform: `translate3d(${w - gripSize / 2 - 2}px, ${
                 h - gripSize / 2 - 2
               }px, 0)`,
-              cursor: 'grab',
+              cursor: 'nesw-resize',
               pointerEvents: 'all',
             }}
           >
