@@ -1,21 +1,23 @@
-import {Rect} from './rect';
+import {MemoRect} from './rect';
 import {useShape} from './smoothie';
 import {DraggableCore, DraggableEvent, DraggableData} from 'react-draggable';
 import type {Replicache} from 'replicache';
 import type {M} from './mutators';
 import type {UndoManager} from '@rocicorp/undo';
+import type {Shape} from './shape';
 
 export function Selection({
   rep,
-  id,
+  shape,
   containerOffsetTop,
   undoManager,
 }: {
   rep: Replicache<M>;
-  id: string;
+  shape: Shape;
   containerOffsetTop: number | null;
   undoManager: UndoManager;
 }) {
+  const {id} = shape;
   const coords = useShape(rep, id);
   const gripSize = 19;
 
@@ -113,10 +115,10 @@ export function Selection({
 
   return (
     <div>
-      <Rect
+      <MemoRect
         {...{
           rep,
-          id,
+          shape,
           highlight: true,
         }}
       />

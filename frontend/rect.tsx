@@ -1,12 +1,12 @@
 import React, {MouseEventHandler, TouchEventHandler} from 'react';
 import type {Replicache} from 'replicache';
 import type {M} from './mutators';
+import type {Shape} from './shape';
 import {useShape} from './smoothie';
-import {useShapeByID} from './subscriptions';
 
 export function Rect({
   rep,
-  id,
+  shape,
   highlight = false,
   highlightColor = 'rgb(74,158,255)',
   onMouseDown,
@@ -15,7 +15,7 @@ export function Rect({
   onMouseLeave,
 }: {
   rep: Replicache<M>;
-  id: string;
+  shape: Shape;
   highlight?: boolean | undefined;
   highlightColor?: string | undefined;
   onMouseDown?: MouseEventHandler | undefined;
@@ -23,9 +23,11 @@ export function Rect({
   onMouseEnter?: MouseEventHandler | undefined;
   onMouseLeave?: MouseEventHandler | undefined;
 }) {
-  const shape = useShapeByID(rep, id);
-  const coords = useShape(rep, id);
-  if (!shape || !coords) {
+  if (!shape) {
+    return null;
+  }
+  const coords = useShape(rep, shape.id);
+  if (!coords) {
     return null;
   }
 
@@ -66,3 +68,5 @@ export function Rect({
     </svg>
   );
 }
+
+export const MemoRect = React.memo(Rect);

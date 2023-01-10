@@ -28,8 +28,17 @@ export const shapeSchema = z.object({
 });
 
 export type Shape = Readonly<z.TypeOf<typeof shapeSchema>>;
-
 const shapeValueSchema = shapeSchema.omit({id: true});
+
+export async function getShapes(tx: ReadTransaction): Promise<Shape[]> {
+  const shapes = await tx.scan({prefix: shapePrefix}).entries().toArray();
+  return shapes.map(([key, val]) => {
+    return {
+      id: key.split('-', 2)[1],
+      ...shapeValueSchema.parse(val),
+    };
+  });
+}
 
 export async function getShape(
   tx: ReadTransaction,

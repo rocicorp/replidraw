@@ -1,21 +1,20 @@
 import React, {useRef, useState} from 'react';
-import {Rect} from './rect';
+import {MemoRect} from './rect';
 import {HotKeys} from 'react-hotkeys';
 import {Collaborator} from './collaborator';
-import {RectController} from './rect-controller';
+import {MemoRectController} from './rect-controller';
 import {touchToMouse} from './events';
 import {Selection} from './selection';
 import {DraggableCore} from 'react-draggable';
 import {
-  useShapeIDs,
-  useOverShapeID,
-  useSelectedShapeID,
+  useShapes,
   useCollaboratorIDs,
+  useOverShape,
+  useSelectedShape,
 } from './subscriptions';
 import type {Replicache} from 'replicache';
 import type {M} from './mutators';
 import type {UndoManager} from '@rocicorp/undo';
-import {getShape, Shape} from './shape';
 
 export function Designer({
   rep,
@@ -24,16 +23,19 @@ export function Designer({
   rep: Replicache<M>;
   undoManager: UndoManager;
 }) {
-  const ids = useShapeIDs(rep);
-  const overID = useOverShapeID(rep);
-  const selectedID = useSelectedShapeID(rep);
+  const shapes = useShapes(rep);
+  const shapeMap = new Map(shapes.map(s => [s.id, s]));
+  const overShape = useOverShape(rep);
+  const selectedShape = useSelectedShape(rep);
   const collaboratorIDs = useCollaboratorIDs(rep);
 
   const ref = useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState(false);
 
   const move = async (dx = 0, dy = 0, animate = true) => {
-    await rep.mutate.moveShape({id: selectedID, dx, dy, animate});
+    if (selectedShape) {
+      await rep.mutate.moveShape({id: selectedShape.id, dx, dy, animate});
+    }
   };
 
   const handlers = {
@@ -65,13 +67,15 @@ export function Designer({
         undo: () => move(0, -20, false),
       });
     },
-    deleteShape: async (e?: KeyboardEvent) => {
+    deleteShape: (e?: KeyboardEvent) => {
       // Prevent navigating backward on some browsers.
       e && e.preventDefault();
-      const shapeBeforeDelete = await rep.query(tx => getShape(tx, selectedID));
-      const deleteShape = () => rep.mutate.deleteShape(selectedID);
-      const createShape = () =>
-        rep.mutate.createShape(shapeBeforeDelete as Shape);
+      const shapeBeforeDelete = selectedShape;
+      if (!shapeBeforeDelete) {
+        return;
+      }
+      const deleteShape = () => rep.mutate.deleteShape(selectedShape.id);
+      const createShape = () => rep.mutate.createShape(shapeBeforeDelete);
 
       void undoManager.add({
         execute: deleteShape,
@@ -123,13 +127,13 @@ export function Designer({
             onTouchMove: e => touchToMouse(e, onMouseMove),
           }}
         >
-          {ids.map(id => (
+          {shapes.map(shape => (
             // draggable rects
-            <RectController
+            <MemoRectController
               {...{
-                key: `shape-${id}`,
+                key: `shape-${shape.id}`,
                 rep,
-                id,
+                shape,
                 undoManager,
               }}
             />
@@ -137,12 +141,12 @@ export function Designer({
 
           {
             // self-highlight
-            !dragging && overID && (
-              <Rect
+            !dragging && overShape && (
+              <MemoRect
                 {...{
-                  key: `highlight-${overID}`,
+                  key: `highlight-${overShape.id}`,
                   rep,
-                  id: overID,
+                  shape: overShape,
                   highlight: true,
                 }}
               />
@@ -151,12 +155,12 @@ export function Designer({
 
           {
             // self-selection
-            selectedID && (
+            selectedShape && (
               <Selection
                 {...{
-                  key: `selection-${selectedID}`,
+                  key: `selection-${selectedShape.id}`,
                   rep,
-                  id: selectedID,
+                  shape: selectedShape,
                   highlight: true,
                   containerOffsetTop: ref.current && ref.current.offsetTop,
                   undoManager,
@@ -176,6 +180,7 @@ export function Designer({
                   key: `key-${id}`,
                   rep,
                   clientID: id,
+                  shapeMap,
                 }}
               />
             ))

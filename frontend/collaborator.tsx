@@ -1,10 +1,11 @@
 import styles from './collaborator.module.css';
 import {useEffect, useState} from 'react';
-import {Rect} from './rect';
+import {MemoRect} from './rect';
 import {useCursor} from './smoothie';
 import type {Replicache} from 'replicache';
 import type {M} from './mutators';
 import {useClientInfo} from './subscriptions';
+import type {Shape} from './shape';
 
 const hideCollaboratorDelay = 5000;
 
@@ -19,11 +20,14 @@ interface Position {
 export function Collaborator({
   rep,
   clientID,
+  shapeMap,
 }: {
   rep: Replicache<M>;
   clientID: string;
+  shapeMap: Map<string, Shape>;
 }) {
   const clientInfo = useClientInfo(rep, clientID);
+
   const [lastPos, setLastPos] = useState<Position | null>(null);
   const [gotFirstChange, setGotFirstChange] = useState(false);
   const [, setPoke] = useState({});
@@ -73,14 +77,19 @@ export function Collaborator({
     return null;
   }
 
+  const collaboratorShape = shapeMap.get(clientInfo.selectedID);
+  if (!collaboratorShape) {
+    return null;
+  }
+
   return (
     <div className={styles.collaborator} style={{opacity: visible ? 1 : 0}}>
       {clientInfo.selectedID && (
-        <Rect
+        <MemoRect
           {...{
             rep,
             key: `selection-${clientInfo.selectedID}`,
-            id: clientInfo.selectedID,
+            shape: collaboratorShape,
             highlight: true,
             highlightColor: userInfo.color,
           }}

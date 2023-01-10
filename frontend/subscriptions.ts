@@ -1,15 +1,14 @@
 import {useSubscribe} from 'replicache-react';
 import {getClientState, clientStatePrefix} from './client-state';
-import {getShape, shapePrefix} from './shape';
+import {getShape, getShapes} from './shape';
 import type {Replicache} from 'replicache';
 import type {M} from './mutators.js';
 
-export function useShapeIDs(rep: Replicache<M>) {
+export function useShapes(rep: Replicache<M>) {
   return useSubscribe(
     rep,
     async tx => {
-      const shapes = await tx.scan({prefix: shapePrefix}).keys().toArray();
-      return shapes.map(k => k.split('-', 2)[1]);
+      return await getShapes(tx);
     },
     [],
   );
@@ -35,23 +34,25 @@ export function useUserInfo(rep: Replicache<M>) {
   );
 }
 
-export function useOverShapeID(rep: Replicache<M>) {
+export function useOverShape(rep: Replicache<M>) {
   return useSubscribe(
     rep,
     async tx => {
-      return (await getClientState(tx, await rep.clientID)).overID;
+      const {overID} = await getClientState(tx, await rep.clientID);
+      return overID ? (await getShape(tx, overID)) ?? null : null;
     },
-    '',
+    null,
   );
 }
 
-export function useSelectedShapeID(rep: Replicache<M>) {
+export function useSelectedShape(rep: Replicache<M>) {
   return useSubscribe(
     rep,
     async tx => {
-      return (await getClientState(tx, await rep.clientID)).selectedID;
+      const {selectedID} = await getClientState(tx, await rep.clientID);
+      return selectedID ? (await getShape(tx, selectedID)) ?? null : null;
     },
-    '',
+    null,
   );
 }
 

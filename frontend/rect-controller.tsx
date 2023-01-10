@@ -1,23 +1,23 @@
-import {Rect} from './rect';
+import {MemoRect} from './rect';
 import {DraggableCore, DraggableEvent, DraggableData} from 'react-draggable';
-import {useShapeByID} from './subscriptions';
 import type {Replicache} from 'replicache';
 import type {M} from './mutators';
 import type {UndoManager} from '@rocicorp/undo';
+import type {Shape} from './shape';
+import React from 'react';
 
 // TODO: In the future I imagine this becoming ShapeController and
 // there also be a Shape that wraps Rect and also knows how to draw Circle, etc.
 export function RectController({
   rep,
-  id,
+  shape,
   undoManager,
 }: {
   rep: Replicache<M>;
-  id: string;
+  shape: Shape;
   undoManager: UndoManager;
 }) {
-  const shape = useShapeByID(rep, id);
-
+  const {id} = shape;
   const onMouseEnter = async () =>
     rep.mutate.overShape({clientID: await rep.clientID, shapeID: id});
   const onMouseLeave = async () =>
@@ -28,7 +28,10 @@ export function RectController({
     // must return void.
     undoManager.startGroup();
     void (async () =>
-      rep.mutate.selectShape({clientID: await rep.clientID, shapeID: id}))();
+      rep.mutate.selectShape({
+        clientID: await rep.clientID,
+        shapeID: id,
+      }))();
   };
   const onDrag = (e: DraggableEvent, d: DraggableData) => {
     // This is subtle, and worth drawing attention to:
@@ -72,10 +75,10 @@ export function RectController({
   return (
     <DraggableCore onStart={onDragStart} onDrag={onDrag} onStop={onDragStop}>
       <div>
-        <Rect
+        <MemoRect
           {...{
             rep,
-            id,
+            shape,
             highlight: false,
             onMouseEnter,
             onMouseLeave,
@@ -85,3 +88,5 @@ export function RectController({
     </DraggableCore>
   );
 }
+
+export const MemoRectController = React.memo(RectController);
