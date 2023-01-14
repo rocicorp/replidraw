@@ -3,6 +3,8 @@ import type {Replicache} from 'replicache';
 import type {M} from './mutators';
 import type {Shape} from './shape';
 import {useShape} from './smoothie';
+import isEqual from 'lodash/isEqual';
+import isEqualWith from 'lodash/isEqualWith';
 
 export function Rect({
   rep,
@@ -69,4 +71,23 @@ export function Rect({
   );
 }
 
-export const MemoRect = React.memo(Rect);
+export const MemoRect = React.memo(Rect, (prev, next) => {
+  return (
+    isEqual(prev.shape, next.shape) &&
+    isEqualWith(
+      {
+        ...prev,
+        shape: undefined,
+        onMouseEnter: undefined,
+        onMouseLeave: undefined,
+      },
+      {
+        ...next,
+        shape: undefined,
+        onMouseEnter: undefined,
+        onMouseLeave: undefined,
+      },
+      (a, b) => a === b,
+    )
+  );
+});
