@@ -6,7 +6,7 @@ import type {UndoManager} from '@rocicorp/undo';
 import type {Shape} from './shape';
 import React from 'react';
 import isEqual from 'lodash/isEqual';
-import {shallowEqual} from '../util/json';
+import shallowequal from 'shallowequal';
 // TODO: In the future I imagine this becoming ShapeController and
 // there also be a Shape that wraps Rect and also knows how to draw Circle, etc.
 export function RectController({
@@ -93,6 +93,6 @@ export function RectController({
 export const MemoRectController = React.memo(RectController, (prev, next) => {
   return (
     isEqual(prev.shape, next.shape) &&
-    shallowEqual({...prev, shape: undefined}, {...next, shape: undefined})
+    shallowequal({...prev, shape: undefined}, {...next, shape: undefined})
   );
 });

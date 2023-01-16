@@ -5,6 +5,7 @@ import type {Shape} from './shape';
 import {useShape} from './smoothie';
 import isEqual from 'lodash/isEqual';
 import isEqualWith from 'lodash/isEqualWith';
+import shallowequal from 'shallowequal';
 
 export function Rect({
   rep,
@@ -74,7 +75,7 @@ export function Rect({
 export const MemoRect = React.memo(Rect, (prev, next) => {
   return (
     isEqual(prev.shape, next.shape) &&
-    isEqualWith(
+    shallowequal(
       {
         ...prev,
         shape: undefined,
@@ -87,7 +88,6 @@ export const MemoRect = React.memo(Rect, (prev, next) => {
         onMouseEnter: undefined,
         onMouseLeave: undefined,
       },
-      (a, b) => a === b,
     )
   );
 });
