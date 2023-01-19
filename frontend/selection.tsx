@@ -1,4 +1,4 @@
-import {MemoRect} from './rect';
+import {Rect} from './rect';
 import {useShape} from './smoothie';
 import {DraggableCore, DraggableEvent, DraggableData} from 'react-draggable';
 import type {Replicache} from 'replicache';
@@ -115,7 +115,7 @@ export function Selection({
 
   return (
     <div>
-      <MemoRect
+      <Rect
         {...{
           rep,
           shape,

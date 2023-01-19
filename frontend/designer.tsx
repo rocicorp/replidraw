@@ -1,8 +1,8 @@
 import React, {useRef, useState} from 'react';
-import {MemoRect} from './rect';
+import {Rect} from './rect';
 import {HotKeys} from 'react-hotkeys';
 import {Collaborator} from './collaborator';
-import {MemoRectController} from './rect-controller';
+import {RectController} from './rect-controller';
 import {touchToMouse} from './events';
 import {Selection} from './selection';
 import {DraggableCore} from 'react-draggable';
@@ -129,7 +129,7 @@ export function Designer({
         >
           {shapes.map(shape => (
             // draggable rects
-            <MemoRectController
+            <RectController
               {...{
                 key: `shape-${shape.id}`,
                 rep,
@@ -142,7 +142,7 @@ export function Designer({
           {
             // self-highlight
             !dragging && overShape && (
-              <MemoRect
+              <Rect
                 {...{
                   key: `highlight-${overShape.id}`,
                   rep,

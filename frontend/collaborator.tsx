@@ -1,6 +1,6 @@
 import styles from './collaborator.module.css';
 import {useEffect, useState} from 'react';
-import {MemoRect} from './rect';
+import {Rect} from './rect';
 import {useCursor} from './smoothie';
 import type {Replicache} from 'replicache';
 import type {M} from './mutators';
@@ -85,7 +85,7 @@ export function Collaborator({
   return (
     <div className={styles.collaborator} style={{opacity: visible ? 1 : 0}}>
       {clientInfo.selectedID && (
-        <MemoRect
+        <Rect
           {...{
             rep,
             key: `selection-${clientInfo.selectedID}`,

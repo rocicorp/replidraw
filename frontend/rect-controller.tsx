@@ -1,4 +1,4 @@
-import {MemoRect} from './rect';
+import {Rect} from './rect';
 import {DraggableCore, DraggableEvent, DraggableData} from 'react-draggable';
 import type {Replicache} from 'replicache';
 import type {M} from './mutators';
@@ -9,7 +9,7 @@ import isEqual from 'lodash/isEqual';
 import shallowequal from 'shallowequal';
 // TODO: In the future I imagine this becoming ShapeController and
 // there also be a Shape that wraps Rect and also knows how to draw Circle, etc.
-export function RectController({
+function RectControllerInternal({
   rep,
   shape,
   undoManager,
@@ -76,7 +76,7 @@ export function RectController({
   return (
     <DraggableCore onStart={onDragStart} onDrag={onDrag} onStop={onDragStop}>
       <div>
-        <MemoRect
+        <Rect
           {...{
             rep,
             shape,
@@ -90,9 +90,12 @@ export function RectController({
   );
 }
 
-export const MemoRectController = React.memo(RectController, (prev, next) => {
-  return (
-    isEqual(prev.shape, next.shape) &&
-    shallowequal({...prev, shape: undefined}, {...next, shape: undefined})
-  );
-});
+export const RectController = React.memo(
+  RectControllerInternal,
+  (prev, next) => {
+    return (
+      isEqual(prev.shape, next.shape) &&
+      shallowequal({...prev, shape: undefined}, {...next, shape: undefined})
+    );
+  },
+);
